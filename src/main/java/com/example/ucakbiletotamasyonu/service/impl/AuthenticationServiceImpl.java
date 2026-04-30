@@ -1,0 +1,210 @@
+package com.example.ucakbiletotamasyonu.service.impl;
+
+import com.example.ucakbiletotamasyonu.dto.AuthRequest;
+import com.example.ucakbiletotamasyonu.dto.AuthResponse;
+import com.example.ucakbiletotamasyonu.dto.DtoUser;
+import com.example.ucakbiletotamasyonu.exception.BaseException;
+import com.example.ucakbiletotamasyonu.exception.ErrorMessage;
+import com.example.ucakbiletotamasyonu.exception.MessageType;
+import com.example.ucakbiletotamasyonu.jwt.JwtService;
+import com.example.ucakbiletotamasyonu.model.RefreshToken;
+import com.example.ucakbiletotamasyonu.model.User;
+import com.example.ucakbiletotamasyonu.repository.RefreshTokenRepository;
+import com.example.ucakbiletotamasyonu.repository.UserRepository;
+import com.example.ucakbiletotamasyonu.service.IAuthenticationService;
+import jakarta.servlet.http.Cookie;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.beans.BeanUtils;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.ResponseCookie;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.authentication.AuthenticationProvider;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.security.web.header.writers.ClearSiteDataHeaderWriter;
+import org.springframework.security.web.authentication.logout.SecurityContextLogoutHandler;
+
+import java.util.Date;
+import java.util.Optional;
+import java.util.UUID;
+@Service
+public class AuthenticationServiceImpl implements IAuthenticationService {
+
+    private static final String REFRESH_TOKEN_COOKIE_NAME = "refreshToken";
+    private static final long REFRESH_TOKEN_MAX_AGE_SECONDS = 60 * 60 * 4;
+    private static final ClearSiteDataHeaderWriter CLEAR_SITE_DATA_HEADER_WRITER =
+            new ClearSiteDataHeaderWriter(ClearSiteDataHeaderWriter.Directive.COOKIES);
+
+
+    @Autowired
+    private UserRepository userRepository;
+    @Autowired
+    private BCryptPasswordEncoder passwordEncoder;
+
+    @Autowired
+    private RefreshTokenRepository refreshTokenRepository;
+
+    @Autowired
+    private AuthenticationProvider authenticationProvider;
+    @Autowired
+    private JwtService jwtService;
+
+    @Value("${security.cookie.secure:false}")
+    private boolean secureCookie;
+
+
+
+
+    private User createUser(AuthRequest input) {
+        User user = new User();
+        user.setCreateTime(new Date());
+        user.setEmail(input.getEmail());
+        user.setPassword(passwordEncoder.encode(input.getPassword()));
+
+        return user;
+    }
+
+    private RefreshToken createRefreshToken(User user) {
+        RefreshToken refreshToken = new RefreshToken();
+        refreshToken.setCreateTime(new Date());
+        refreshToken.setExpiredDate(new Date(System.currentTimeMillis() + 1000*60*60*4));
+        refreshToken.setRefreshToken(UUID.randomUUID().toString());
+        refreshToken.setUser(user);
+        return refreshToken;
+    }
+
+    @Override
+    public DtoUser register(AuthRequest input) {
+        DtoUser dtoUser = new DtoUser();
+
+        User savedUser = userRepository.save(createUser(input));
+
+        BeanUtils.copyProperties(savedUser, dtoUser);
+        return dtoUser;
+    }
+
+    @Override
+    public AuthResponse authenticate(AuthRequest input, HttpServletResponse response) {
+        try {
+            UsernamePasswordAuthenticationToken authenticationToken =
+                    new UsernamePasswordAuthenticationToken(input.getEmail(), input.getPassword());
+            authenticationProvider.authenticate(authenticationToken);
+
+            Optional<User> optUser = userRepository.findByEmail(input.getEmail());
+
+            String accessToken = jwtService.generateToken(optUser.get());
+            RefreshToken savedRefreshToken = refreshTokenRepository.save(createRefreshToken(optUser.get()));
+            addRefreshTokenCookie(response, savedRefreshToken.getRefreshToken());
+
+            return new AuthResponse(accessToken);
+        } catch (Exception e) {
+            throw new BaseException(new ErrorMessage(MessageType.EMAIL_OR_PASSWORD_INVALID, e.getMessage()));
+        }
+    }
+
+    public boolean isValidRefreshToken(Date expiredDate) {
+        return new Date().before(expiredDate);
+    }
+    @Override
+    public AuthResponse refreshToken(HttpServletRequest request, HttpServletResponse response) {
+        String refreshTokenValue = getRefreshTokenFromCookie(request);
+        Optional<RefreshToken> refreshToken = refreshTokenRepository.findByRefreshToken(refreshTokenValue);
+        if(refreshToken.isEmpty()) {
+            throw new BaseException(new ErrorMessage(MessageType.REFRESH_TOKEN_NOT_FOUND, refreshTokenValue));
+        }
+
+        if(!isValidRefreshToken(refreshToken.get().getExpiredDate())) {
+            throw new BaseException(new ErrorMessage(MessageType.REFRESH_TOKEN_IS_EXPIRED, refreshTokenValue));
+        }
+        User user = refreshToken.get().getUser();
+        String accessToken = jwtService.generateToken(user);
+        RefreshToken savedRefreshToken = refreshTokenRepository.save(createRefreshToken(user));
+        addRefreshTokenCookie(response, savedRefreshToken.getRefreshToken());
+        return new AuthResponse(accessToken);
+    }
+
+    @Override
+    @Transactional
+    public void logout(HttpServletRequest request, HttpServletResponse response, Authentication authentication) {
+        String refreshTokenValue = getRefreshTokenFromCookieOrNull(request);
+        if (refreshTokenValue != null) {
+            refreshTokenRepository.deleteByRefreshToken(refreshTokenValue);
+        }
+        clearRefreshTokenCookie(response);
+        CLEAR_SITE_DATA_HEADER_WRITER.writeHeaders(request, response);
+        new SecurityContextLogoutHandler().logout(request, response, authentication);
+    }
+
+    private void addRefreshTokenCookie(HttpServletResponse response, String refreshToken) {
+        ResponseCookie cookie = ResponseCookie.from(REFRESH_TOKEN_COOKIE_NAME, refreshToken)
+                // JavaScript'in cookie'ye erişimini engeller (document.cookie ile okunamaz)
+                // XSS saldırılarına karşı koruma sağlar
+                .httpOnly(true)
+
+                // true  → Cookie sadece HTTPS üzerinden gönderilir (production)
+                // false → HTTP'de de gönderilir (development)
+                // application.properties'den gelir: security.cookie.secure=false
+                .secure(secureCookie)
+
+                // Cookie'nin hangi path'lere gönderileceğini belirler
+                // Sadece /api/v1/auth/** isteklerinde cookie gönderilir
+                // /api/v1/users gibi diğer endpoint'lere gönderilmez
+                .path("/api/v1/auth")
+
+                // Cookie'nin geçerlilik süresi (saniye cinsinden)
+                // 60 * 60 * 4 = 4 saat
+                // 0  → Cookie'yi hemen sil
+                // -1 → Session cookie (tarayıcı kapanınca silinir)
+                .maxAge(REFRESH_TOKEN_MAX_AGE_SECONDS)
+
+                // Cross-site isteklerde cookie'nin gönderilip gönderilmeyeceğini belirler
+                // "Strict" → Sadece aynı siteden gelen isteklerde gönderilir
+                // "Lax"    → Aynı site + top-level GET isteklerinde gönderilir
+                // "None"   → Her yerden gönderilir (Secure=true zorunlu olur)
+                .sameSite("Lax")
+
+                .build();
+
+        // Cookie'yi response header'ına ekler
+        // Set-Cookie: refreshToken=xxx; HttpOnly; Secure; Path=/api/v1/auth; ...
+        response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
+    }
+
+    private void clearRefreshTokenCookie(HttpServletResponse response) {
+        ResponseCookie cookie = ResponseCookie.from(REFRESH_TOKEN_COOKIE_NAME, "")
+                .httpOnly(true)
+                .secure(secureCookie)
+                .path("/api/v1/auth")
+                .maxAge(0)
+                .sameSite("Lax")
+                .build();
+        response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
+    }
+
+    private String getRefreshTokenFromCookie(HttpServletRequest request) {
+        String refreshTokenValue = getRefreshTokenFromCookieOrNull(request);
+        if (refreshTokenValue == null) {
+            throw new BaseException(new ErrorMessage(MessageType.REFRESH_TOKEN_NOT_FOUND, "cookie"));
+        }
+        return refreshTokenValue;
+    }
+
+    private String getRefreshTokenFromCookieOrNull(HttpServletRequest request) {
+        Cookie[] cookies = request.getCookies();
+        if (cookies == null) {
+            return null;
+        }
+        for (Cookie cookie : cookies) {
+            if (REFRESH_TOKEN_COOKIE_NAME.equals(cookie.getName()) && cookie.getValue() != null && !cookie.getValue().isBlank()) {
+                return cookie.getValue();
+            }
+        }
+        return null;
+    }
+
+}
