@@ -1,5 +1,17 @@
 # UcakBiletOtamasyonu
 
+## PostgreSQL Docker Kurulumu
+
+```bash
+docker run --name my-postgres -e POSTGRES_PASSWORD=gizlisifrem -p 5432:5432 -d postgres
+```
+
+## pgAdmin Docker Kurulumu
+
+```bash
+docker run --name my-pgadmin -p 5050:80 -e PGADMIN_DEFAULT_EMAIL=admin@admin.com -e PGADMIN_DEFAULT_PASSWORD=admin -d dpage/pgadmin4
+```
+
 UcakBiletOtamasyonu, Spring Boot ile geliştirilmiş bir uçak bileti otomasyonu projesidir.  
 Şu anda projede JWT tabanlı authentication, refresh token akışı, HttpOnly cookie ile token taşıma ve logout desteği bulunmaktadır.
 
