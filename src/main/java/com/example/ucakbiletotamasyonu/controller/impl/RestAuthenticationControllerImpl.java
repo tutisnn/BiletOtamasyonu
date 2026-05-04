@@ -5,6 +5,7 @@ import com.example.ucakbiletotamasyonu.controller.RootEntity;
 import com.example.ucakbiletotamasyonu.dto.AuthRequest;
 import com.example.ucakbiletotamasyonu.dto.AuthResponse;
 import com.example.ucakbiletotamasyonu.dto.DtoUser;
+import com.example.ucakbiletotamasyonu.dto.VerifyEmailRequest;
 import com.example.ucakbiletotamasyonu.service.IAuthenticationService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -27,6 +28,12 @@ public class RestAuthenticationControllerImpl extends RestBaseController impleme
     @Override
     public RootEntity<DtoUser> register(@Valid @RequestBody AuthRequest input) {
         return ok(authenticationService.register(input));
+    }
+
+    @PostMapping("/verify-email")
+    @Override
+    public RootEntity<DtoUser> verifyEmail(@Valid @RequestBody VerifyEmailRequest input) {
+        return ok(authenticationService.verifyEmail(input));
     }
 
     @PostMapping("/login")

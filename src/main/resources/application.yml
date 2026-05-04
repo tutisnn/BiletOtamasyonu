@@ -1,0 +1,34 @@
+spring:
+  application:
+    name: UcakBiletOtamasyonu
+  security:
+    oauth2:
+      client:
+        registration:
+          google-login:
+            provider: google
+            client-id: ${GOOGLE_CLIENT_ID:}
+            client-secret: ${GOOGLE_CLIENT_SECRET:}
+            scope:
+              - openid
+              - profile
+              - email
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/postgres}
+    username: ${DB_USERNAME:postgres}
+    password: ${DB_PASSWORD:gizlisifrem}
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+        default_schema: UcakBiletOtamasyonu
+
+security:
+  jwt:
+    secret-key: JfVoLB61pmyKbWswGsuxD6TMnPFZzsoOACmSd1mA5hM=
+  cookie:
+    secure: ${COOKIE_SECURE:false}

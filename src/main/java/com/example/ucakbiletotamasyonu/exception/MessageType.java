@@ -8,8 +8,12 @@ public enum MessageType {
     TOKEN_IS_EXPIRED("1005", "token is expired"),
     EMAIL_NOT_FOUND("1006", "email not found"),
     EMAIL_OR_PASSWORD_INVALID("1007", "email or password is invalid"),
-    REFRESH_TOKEN_NOT_FOUND("1008", "refresh token not found"),
-    REFRESH_TOKEN_IS_EXPIRED("1009", "refresh token is expired"),
+    EMAIL_ALREADY_REGISTERED("1008", "email already registered"),
+    REFRESH_TOKEN_NOT_FOUND("1009", "refresh token not found"),
+    REFRESH_TOKEN_IS_EXPIRED("1010", "refresh token is expired"),
+    EMAIL_NOT_VERIFIED("1011", "email is not verified"),
+    VERIFICATION_CODE_INVALID("1012", "verification code is invalid"),
+    VERIFICATION_CODE_EXPIRED("1013", "verification code is expired"),
     GENERAL_EXCEPTION("9999", "general exception occurred");
 
     private final String code;

@@ -16,7 +16,7 @@ UcakBiletOtamasyonu, Spring Boot ile geliştirilmiş bir uçak bileti otomasyonu
 Şu anda projede JWT tabanlı authentication, refresh token akışı, HttpOnly cookie ile token taşıma ve logout desteği bulunmaktadır.
 
 ## Teknolojiler
-
+    "
 - Java 17
 - Spring Boot
 - Spring Security
@@ -101,6 +101,66 @@ Başarılı olursa:
 - Response body içinde `accessToken` döner
 - `refreshToken` cookie olarak set edilir
 
+### Email Verification
+
+Register sonrası kullanıcı `emailVerified=false` durumda oluşturulur.  
+Doğrulama kodu şu an uygulama loglarına yazılır.
+
+#### Verify Email
+
+```http
+POST /api/v1/auth/verify-email
+```
+
+Body:
+
+```json
+{
+  "email": "test@example.com",
+  "verificationCode": "123456"
+}
+```
+
+Doğrulama başarılı olursa kullanıcı `emailVerified=true` olur ve login yapabilir.
+
+#### Not
+
+- Doğrulama kodu 6 hanelidir.
+- Kod 15 dakika geçerlidir.
+- Kod süresi dolarsa yeni register akışı ya da yeniden kod üretme mekanizması gerekir.
+
+### Google Login
+
+Google giriş akışını başlatmak için doğrudan şu adresi kullan:
+
+```http
+GET /oauth2/authorization/google-login
+```
+
+Callback endpoint:
+
+```text
+/login/oauth2/code/google-login
+```
+
+Google Cloud Console tarafında yetkili redirect URI olarak bu callback adresini tanımlaman gerekir.
+
+### Facebook Login
+
+Facebook giriş akışını başlatmak için doğrudan şu adresi kullan:
+
+```http
+GET /oauth2/authorization/facebook-login
+```
+
+Callback endpoint:
+
+```text
+/login/oauth2/code/facebook-login
+```
+
+Facebook Developer Console tarafında yetkili redirect URI olarak bu callback adresini tanımlaman gerekir.
+
 ### Refresh Token
 
 ```http
@@ -110,18 +170,39 @@ POST /api/v1/auth/refresh-token
 Body gerekmez. Cookie ile çalışır.
 
 ### Logout
+Ana Kaynak:
+https://docs.spring.io/spring-security/reference/servlet/authentication/logout.html
+
 
 ```http
 POST /api/v1/auth/logout
 ```
 
 Refresh token cookie'sini temizler ve DB kaydını siler.
+Logout sırasında cookie temizleme ve `Clear-Site-Data` ClearSiteDataHeaderWriter sınıfı kullanılır
+SecurityContextLogoutHandler sınıfının kullanımı
 
-## Notlar
+QATUH
+https://docs.spring.io/spring-security/reference/servlet/oauth2/login/core.html
 
-- Refresh token cookie olarak `HttpOnly` biçimde tutulur.
-- Logout sırasında cookie temizleme ve `Clear-Site-Data` header'i kullanılır.
-- `User` entity'sinde giriş anahtarı olarak `email` kullanılır.
+## Auth Policy
+
+Authentication tarafındaki davranış kuralları:
+
+- `email + password` ile kayıtlı kullanıcı tekrar register olamaz.
+- `email + password` ile kayıtlı kullanıcı Google veya Facebook ile giriş yapamaz.
+- Google ile kayıtlı kullanıcı aynı Google hesabıyla tekrar giriş yapabilir.
+- Facebook ile kayıtlı kullanıcı aynı Facebook hesabıyla tekrar giriş yapabilir.
+- Aynı email farklı sosyal provider ile eşleşirse yeni hesap açılmaz.
+- Aynı provider olmayan bir kayıt görülürse `email already registered` hatası döner.
+
+Kısacası:
+
+- `LOCAL` hesaplar sadece local login ile çalışır.
+- `GOOGLE` hesaplar sadece Google login ile çalışır.
+- `FACEBOOK` hesaplar sadece Facebook login ile çalışır.
+- `LOCAL` hesaplar login olmadan önce email verification tamamlamalıdır.
+
 
 ## Exception Mimarisi
 
@@ -153,3 +234,4 @@ Akış şu şekildedir:
   }
 }
 ```
+## Kaynaklar
