@@ -14,6 +14,7 @@ public enum MessageType {
     EMAIL_NOT_VERIFIED("1011", "email is not verified"),
     VERIFICATION_CODE_INVALID("1012", "verification code is invalid"),
     VERIFICATION_CODE_EXPIRED("1013", "verification code is expired"),
+    VERIFICATION_EMAIL_SEND_FAILED("1014", "verification email send failed"),
     GENERAL_EXCEPTION("9999", "general exception occurred");
 
     private final String code;

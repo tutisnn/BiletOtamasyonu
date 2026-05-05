@@ -104,7 +104,7 @@ Başarılı olursa:
 ### Email Verification
 
 Register sonrası kullanıcı `emailVerified=false` durumda oluşturulur.  
-Doğrulama kodu şu an uygulama loglarına yazılır.
+Doğrulama kodu SMTP ile e-posta olarak gönderilir.
 
 #### Verify Email
 
@@ -128,6 +128,14 @@ Doğrulama başarılı olursa kullanıcı `emailVerified=true` olur ve login yap
 - Doğrulama kodu 6 hanelidir.
 - Kod 15 dakika geçerlidir.
 - Kod süresi dolarsa yeni register akışı ya da yeniden kod üretme mekanizması gerekir.
+
+SMTP için `spring-boot-starter-mail` ve `spring.mail.*` ayarları kullanılır.  
+Gerekli değerler environment variable ile verilir:
+
+- `MAIL_HOST`
+- `MAIL_PORT`
+- `MAIL_USERNAME`
+- `MAIL_PASSWORD`
 
 ### Google Login
 

@@ -13,6 +13,7 @@ import com.example.ucakbiletotamasyonu.model.RefreshToken;
 import com.example.ucakbiletotamasyonu.model.User;
 import com.example.ucakbiletotamasyonu.repository.RefreshTokenRepository;
 import com.example.ucakbiletotamasyonu.repository.UserRepository;
+import com.example.ucakbiletotamasyonu.service.IEmailService;
 import com.example.ucakbiletotamasyonu.service.IAuthenticationService;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
@@ -33,6 +34,7 @@ import org.springframework.security.web.header.writers.ClearSiteDataHeaderWriter
 import org.springframework.security.web.authentication.logout.SecurityContextLogoutHandler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.mail.MailException;
 
 import java.util.Date;
 import java.util.Optional;
@@ -66,6 +68,8 @@ public class AuthenticationServiceImpl implements IAuthenticationService {
     private AuthenticationProvider authenticationProvider;
     @Autowired
     private JwtService jwtService;
+    @Autowired
+    private IEmailService emailService;
 
     @Value("${security.cookie.secure:false}")
     private boolean secureCookie;
@@ -107,13 +111,14 @@ public class AuthenticationServiceImpl implements IAuthenticationService {
         return String.valueOf(code);
     }
 
-    private void issueVerificationCode(User user) {
+    private String issueVerificationCode(User user) {
         String verificationCode = generateVerificationCode();
         user.setEmailVerified(false);
         user.setVerificationCode(verificationCode);
         user.setVerificationCodeExpiresAt(new Date(System.currentTimeMillis() + VERIFICATION_CODE_MAX_AGE_MILLIS));
         userRepository.save(user);
-        log.info("Verification code for {} is {}", user.getEmail(), verificationCode);
+        log.info("Verification code generated for {}", user.getEmail());
+        return verificationCode;
     }
 
     private boolean isEmailVerified(User user) {
@@ -143,7 +148,13 @@ public class AuthenticationServiceImpl implements IAuthenticationService {
         }
 
         User savedUser = userRepository.save(createUser(input));
-        issueVerificationCode(savedUser);
+        String verificationCode = issueVerificationCode(savedUser);
+        try {
+            emailService.sendVerificationCode(savedUser.getEmail(), verificationCode);
+        } catch (MailException e) {
+            userRepository.delete(savedUser);
+            throw new BaseException(new ErrorMessage(MessageType.VERIFICATION_EMAIL_SEND_FAILED, savedUser.getEmail()));
+        }
 
         BeanUtils.copyProperties(savedUser, dtoUser);
         return dtoUser;
