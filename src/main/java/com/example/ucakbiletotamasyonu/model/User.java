@@ -34,14 +34,8 @@ public class User extends BaseEntity implements UserDetails{
     @Column(name = "provider", nullable = false)
     private AuthProvider provider;
 
-    @Column(name = "email_verified")
-    private Boolean emailVerified;
-
-    @Column(name = "verification_code")
-    private String verificationCode;
-
-    @Column(name = "verification_code_expires_at")
-    private java.util.Date verificationCodeExpiresAt;
+    @Column(name = "enabled", nullable = false)
+    private boolean enabled;
 
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
@@ -51,6 +45,31 @@ public class User extends BaseEntity implements UserDetails{
     @Override
     public String getUsername() {
         return email;
+    }
+
+    @Override
+    public String getPassword() {
+        return password;
+    }
+
+    @Override
+    public boolean isAccountNonExpired() {
+        return true;
+    }
+
+    @Override
+    public boolean isAccountNonLocked() {
+        return true;
+    }
+
+    @Override
+    public boolean isCredentialsNonExpired() {
+        return true;
+    }
+
+    @Override
+    public boolean isEnabled() {
+        return enabled;
     }
 }
 

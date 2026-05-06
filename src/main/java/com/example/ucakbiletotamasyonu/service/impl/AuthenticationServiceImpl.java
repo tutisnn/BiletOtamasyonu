@@ -3,7 +3,9 @@ package com.example.ucakbiletotamasyonu.service.impl;
 import com.example.ucakbiletotamasyonu.dto.AuthRequest;
 import com.example.ucakbiletotamasyonu.dto.AuthResponse;
 import com.example.ucakbiletotamasyonu.dto.DtoUser;
+import com.example.ucakbiletotamasyonu.dto.ResendVerificationEmailRequest;
 import com.example.ucakbiletotamasyonu.dto.VerifyEmailRequest;
+import com.example.ucakbiletotamasyonu.event.OnRegistrationCompleteEvent;
 import com.example.ucakbiletotamasyonu.exception.BaseException;
 import com.example.ucakbiletotamasyonu.exception.ErrorMessage;
 import com.example.ucakbiletotamasyonu.exception.MessageType;
@@ -13,7 +15,7 @@ import com.example.ucakbiletotamasyonu.model.RefreshToken;
 import com.example.ucakbiletotamasyonu.model.User;
 import com.example.ucakbiletotamasyonu.repository.RefreshTokenRepository;
 import com.example.ucakbiletotamasyonu.repository.UserRepository;
-import com.example.ucakbiletotamasyonu.service.IEmailService;
+import com.example.ucakbiletotamasyonu.repository.VerificationTokenRepository;
 import com.example.ucakbiletotamasyonu.service.IAuthenticationService;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
@@ -22,6 +24,7 @@ import jakarta.transaction.Transactional;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseCookie;
 import org.springframework.security.core.Authentication;
@@ -32,22 +35,19 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.security.web.header.writers.ClearSiteDataHeaderWriter;
 import org.springframework.security.web.authentication.logout.SecurityContextLogoutHandler;
+import org.springframework.security.authentication.DisabledException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.mail.MailException;
 
 import java.util.Date;
 import java.util.Optional;
-import java.security.SecureRandom;
 import java.util.UUID;
 @Service
 public class AuthenticationServiceImpl implements IAuthenticationService {
-
     private static final Logger log = LoggerFactory.getLogger(AuthenticationServiceImpl.class);
+
     private static final String REFRESH_TOKEN_COOKIE_NAME = "refreshToken";
     private static final long REFRESH_TOKEN_MAX_AGE_SECONDS = 60 * 60 * 4;
-    private static final long VERIFICATION_CODE_MAX_AGE_MILLIS = 15 * 60 * 1000L;
-    private static final SecureRandom SECURE_RANDOM = new SecureRandom();
 
     /* ClearSiteDataHeaderWriter→ Spring Security'nin HTTP response'a Clear-Site-Data header'ı ekleyen sınıfı.
       learSiteDataHeaderWriter.Directive.COOKIESSadece cookie'leri temizle" direktifi
@@ -63,19 +63,18 @@ public class AuthenticationServiceImpl implements IAuthenticationService {
 
     @Autowired
     private RefreshTokenRepository refreshTokenRepository;
+    @Autowired
+    private VerificationTokenRepository verificationTokenRepository;
 
     @Autowired
     private AuthenticationProvider authenticationProvider;
     @Autowired
     private JwtService jwtService;
     @Autowired
-    private IEmailService emailService;
+    private ApplicationEventPublisher applicationEventPublisher;
 
     @Value("${security.cookie.secure:false}")
     private boolean secureCookie;
-
-
-
 
     private User createUser(AuthRequest input) {
         User user = new User();
@@ -83,9 +82,7 @@ public class AuthenticationServiceImpl implements IAuthenticationService {
         user.setEmail(input.getEmail());
         user.setPassword(passwordEncoder.encode(input.getPassword()));
         user.setProvider(AuthProvider.LOCAL);
-        user.setEmailVerified(false);
-        user.setVerificationCode(null);
-        user.setVerificationCodeExpiresAt(null);
+        user.setEnabled(false);
 
         return user;
     }
@@ -100,34 +97,8 @@ public class AuthenticationServiceImpl implements IAuthenticationService {
         user.setEmail(email);
         user.setPassword(null);
         user.setProvider(provider);
-        user.setEmailVerified(true);
-        user.setVerificationCode(null);
-        user.setVerificationCodeExpiresAt(null);
+        user.setEnabled(true);
         return user;
-    }
-
-    private String generateVerificationCode() {
-        int code = 100000 + SECURE_RANDOM.nextInt(900000);
-        return String.valueOf(code);
-    }
-
-    private String issueVerificationCode(User user) {
-        String verificationCode = generateVerificationCode();
-        user.setEmailVerified(false);
-        user.setVerificationCode(verificationCode);
-        user.setVerificationCodeExpiresAt(new Date(System.currentTimeMillis() + VERIFICATION_CODE_MAX_AGE_MILLIS));
-        userRepository.save(user);
-        log.info("Verification code generated for {}", user.getEmail());
-        return verificationCode;
-    }
-
-    private boolean isEmailVerified(User user) {
-        if (Boolean.TRUE.equals(user.getEmailVerified())) {
-            return true;
-        }
-        return user.getEmailVerified() == null
-                && user.getVerificationCode() == null
-                && user.getVerificationCodeExpiresAt() == null;
     }
 
     private RefreshToken createRefreshToken(User user) {
@@ -140,6 +111,7 @@ public class AuthenticationServiceImpl implements IAuthenticationService {
     }
 
     @Override
+    @Transactional
     public DtoUser register(AuthRequest input) {
         DtoUser dtoUser = new DtoUser();
 
@@ -148,48 +120,47 @@ public class AuthenticationServiceImpl implements IAuthenticationService {
         }
 
         User savedUser = userRepository.save(createUser(input));
-        String verificationCode = issueVerificationCode(savedUser);
-        try {
-            emailService.sendVerificationCode(savedUser.getEmail(), verificationCode);
-        } catch (MailException e) {
-            userRepository.delete(savedUser);
-            throw new BaseException(new ErrorMessage(MessageType.VERIFICATION_EMAIL_SEND_FAILED, savedUser.getEmail()));
-        }
+        publishVerificationCodeEvent(savedUser);
 
         BeanUtils.copyProperties(savedUser, dtoUser);
         return dtoUser;
     }
 
     @Override
+    @Transactional
+    public void resendVerificationEmail(ResendVerificationEmailRequest input) {
+        log.info("resendVerificationEmail service called for email={}", input.getEmail());
+        User user = userRepository.findByEmail(input.getEmail())
+                .orElseThrow(() -> new BaseException(new ErrorMessage(MessageType.EMAIL_NOT_FOUND, input.getEmail())));
+
+        if (user.isEnabled()) {
+            log.info("resendVerificationEmail rejected because already verified: {}", input.getEmail());
+            throw new BaseException(new ErrorMessage(MessageType.EMAIL_ALREADY_VERIFIED, input.getEmail()));
+        }
+
+        verificationTokenRepository.deleteByUser(user);
+        log.info("old verification tokens deleted for email={}", input.getEmail());
+        publishVerificationCodeEvent(user);
+    }
+
+    @Override
+    @Transactional
     public DtoUser verifyEmail(VerifyEmailRequest input) {
-        Optional<User> optionalUser = userRepository.findByEmail(input.getEmail());
-        if (optionalUser.isEmpty()) {
-            throw new BaseException(new ErrorMessage(MessageType.EMAIL_NOT_FOUND, input.getEmail()));
+        var verificationToken = verificationTokenRepository.findByToken(input.getVerificationCode())
+                .orElseThrow(() -> new BaseException(new ErrorMessage(MessageType.VERIFICATION_CODE_INVALID, input.getVerificationCode())));
+
+        if (verificationToken.getExpiryDate() == null || new Date().after(verificationToken.getExpiryDate())) {
+            verificationTokenRepository.delete(verificationToken);
+            throw new BaseException(new ErrorMessage(MessageType.VERIFICATION_CODE_EXPIRED, input.getVerificationCode()));
         }
 
-        User user = optionalUser.get();
-        if (user.getProvider() != AuthProvider.LOCAL) {
-            throw new BaseException(new ErrorMessage(MessageType.EMAIL_ALREADY_REGISTERED, input.getEmail()));
-        }
-
-        if (Boolean.TRUE.equals(user.getEmailVerified())) {
-            DtoUser dtoUser = new DtoUser();
-            BeanUtils.copyProperties(user, dtoUser);
-            return dtoUser;
-        }
-
-        if (user.getVerificationCodeExpiresAt() == null || new Date().after(user.getVerificationCodeExpiresAt())) {
-            throw new BaseException(new ErrorMessage(MessageType.VERIFICATION_CODE_EXPIRED, input.getEmail()));
-        }
-
-        if (!input.getVerificationCode().equals(user.getVerificationCode())) {
+        User user = verificationToken.getUser();
+        if (!user.getEmail().equalsIgnoreCase(input.getEmail())) {
             throw new BaseException(new ErrorMessage(MessageType.VERIFICATION_CODE_INVALID, input.getVerificationCode()));
         }
-
-        user.setEmailVerified(true);
-        user.setVerificationCode(null);
-        user.setVerificationCodeExpiresAt(null);
+        user.setEnabled(true);
         User savedUser = userRepository.save(user);
+        verificationTokenRepository.delete(verificationToken);
 
         DtoUser dtoUser = new DtoUser();
         BeanUtils.copyProperties(savedUser, dtoUser);
@@ -207,7 +178,7 @@ public class AuthenticationServiceImpl implements IAuthenticationService {
             if (optUser.isEmpty() || optUser.get().getProvider() != AuthProvider.LOCAL) {
                 throw new BaseException(new ErrorMessage(MessageType.EMAIL_OR_PASSWORD_INVALID, input.getEmail()));
             }
-            if (!isEmailVerified(optUser.get())) {
+            if (!optUser.get().isEnabled()) {
                 throw new BaseException(new ErrorMessage(MessageType.EMAIL_NOT_VERIFIED, input.getEmail()));
             }
 
@@ -216,6 +187,8 @@ public class AuthenticationServiceImpl implements IAuthenticationService {
             addRefreshTokenCookie(response, savedRefreshToken.getRefreshToken());
 
             return new AuthResponse(accessToken);
+        } catch (DisabledException e) {
+            throw new BaseException(new ErrorMessage(MessageType.EMAIL_NOT_VERIFIED, input.getEmail()));
         } catch (BaseException e) {
             throw e;
         } catch (Exception e) {
@@ -255,6 +228,11 @@ public class AuthenticationServiceImpl implements IAuthenticationService {
         addRefreshTokenCookie(response, savedRefreshToken.getRefreshToken());
 
         return new AuthResponse(accessToken);
+    }
+
+    private void publishVerificationCodeEvent(User user) {
+        log.info("publishing registration verification event for email={}", user.getEmail());
+        applicationEventPublisher.publishEvent(new OnRegistrationCompleteEvent(user));
     }
 
     public boolean isValidRefreshToken(Date expiredDate) {

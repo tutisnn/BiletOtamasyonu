@@ -1,4 +1,4 @@
-# UcakBiletOtamasyonu
+﻿# UcakBiletOtamasyonu
 
 ## PostgreSQL Docker Kurulumu
 
@@ -103,8 +103,8 @@ Başarılı olursa:
 
 ### Email Verification
 
-Register sonrası kullanıcı `emailVerified=false` durumda oluşturulur.  
-Doğrulama kodu SMTP ile e-posta olarak gönderilir.
+Register sonrası kullanıcı `enabled=false` durumda oluşturulur.  
+`OnRegistrationCompleteEvent` publish edilir, listener bir `VerificationToken` oluşturur ve doğrulama kodunu SMTP ile e-posta olarak gönderir.
 
 #### Verify Email
 
@@ -121,13 +121,28 @@ Body:
 }
 ```
 
-Doğrulama başarılı olursa kullanıcı `emailVerified=true` olur ve login yapabilir.
+Doğrulama başarılı olursa kullanıcı `enabled=true` olur ve login yapabilir.
+
+#### Resend Verification Email
+
+```http
+POST /api/v1/auth/resend-verification-email
+```
+
+Body:
+
+```json
+{
+  "email": "test@example.com"
+}
+```
+
+Bu endpoint, hesabı doğrulanmamış kullanıcıya yeni bir verification code gönderir.
 
 #### Not
 
-- Doğrulama kodu 6 hanelidir.
-- Kod 15 dakika geçerlidir.
-- Kod süresi dolarsa yeni register akışı ya da yeniden kod üretme mekanizması gerekir.
+- Verification code 24 saat geçerlidir.
+- Kod süresi dolarsa yeniden register akışı ya da tekrar verification maili üretmek gerekir.
 
 SMTP için `spring-boot-starter-mail` ve `spring.mail.*` ayarları kullanılır.  
 Gerekli değerler environment variable ile verilir:
@@ -190,8 +205,6 @@ Refresh token cookie'sini temizler ve DB kaydını siler.
 Logout sırasında cookie temizleme ve `Clear-Site-Data` ClearSiteDataHeaderWriter sınıfı kullanılır
 SecurityContextLogoutHandler sınıfının kullanımı
 
-QATUH
-https://docs.spring.io/spring-security/reference/servlet/oauth2/login/core.html
 
 ## Auth Policy
 
@@ -211,6 +224,14 @@ Kısacası:
 - `FACEBOOK` hesaplar sadece Facebook login ile çalışır.
 - `LOCAL` hesaplar login olmadan önce email verification tamamlamalıdır.
 
+## Spring Events
+
+Spring Boot Events arka planda kısaca şu 4 adımla çalışır:
+
+1. Kayıt (Startup): Uygulama başlarken Spring, `@EventListener` yazan tüm metotları bulur ve hangi olayı dinlediklerini bir önbelleğe (cache) kaydeder.
+2. Fırlatma (Publish): Bir olay fırlatıldığında bu olay sistemin dağıtım merkezi olan `ApplicationEventMulticaster`'a iletilir.
+3. Eşleştirme ve Dağıtım: Multicaster, gelen olayın türüne bakar, önbellekten bu olayı dinleyenleri bulur ve bir döngü içinde sırayla hepsini tetikler.
+4. Varsayılan Davranış (Senkron): Tüm bu dağıtım işlemi varsayılan olarak senkron çalışır. Yani ana kod akışı, tüm dinleyicilerin işini bitirmesini bekler. Beklememesi için `@Async` kullanılmalıdır.
 
 ## Exception Mimarisi
 

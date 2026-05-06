@@ -9,6 +9,6 @@ import lombok.Setter;
 public class DtoUser extends DtoBase {
 
     private String email;
-    private Boolean emailVerified;
+    private Boolean enabled;
 }
 

@@ -3,6 +3,7 @@ package com.example.ucakbiletotamasyonu.service;
 import com.example.ucakbiletotamasyonu.dto.AuthRequest;
 import com.example.ucakbiletotamasyonu.dto.AuthResponse;
 import com.example.ucakbiletotamasyonu.dto.DtoUser;
+import com.example.ucakbiletotamasyonu.dto.ResendVerificationEmailRequest;
 import com.example.ucakbiletotamasyonu.dto.VerifyEmailRequest;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -13,6 +14,7 @@ public interface IAuthenticationService {
 
     public DtoUser register(AuthRequest input);
     public DtoUser verifyEmail(VerifyEmailRequest input);
+    public void resendVerificationEmail(ResendVerificationEmailRequest input);
     public AuthResponse authenticate(AuthRequest input, HttpServletResponse response);
     public AuthResponse googleLogin(OAuth2User oAuth2User, HttpServletResponse response);
     public AuthResponse facebookLogin(OAuth2User oAuth2User, HttpServletResponse response);

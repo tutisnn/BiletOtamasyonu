@@ -25,13 +25,13 @@ public class EmailServiceImpl implements IEmailService {
         if (fromAddress != null && !fromAddress.isBlank()) {
             message.setFrom(fromAddress);
         }
-        message.setSubject("UcakBiletOtamasyonu email verification code");
+        message.setSubject("UcakBiletOtamasyonu account verification");
         message.setText("""
                 Hello,
 
                 Your verification code is: %s
 
-                This code is valid for 15 minutes.
+                This code is valid for 24 hours.
 
                 If you did not request this email, you can ignore it.
                 """.formatted(verificationCode));
