@@ -16,6 +16,10 @@ public enum MessageType {
     VERIFICATION_CODE_EXPIRED("1013", "verification code is expired"),
     VERIFICATION_EMAIL_SEND_FAILED("1014", "verification email send failed"),
     EMAIL_ALREADY_VERIFIED("1015", "email is already verified"),
+    PASSWORD_RESET_TOKEN_INVALID("1016", "password reset token is invalid"),
+    PASSWORD_RESET_TOKEN_EXPIRED("1017", "password reset token is expired"),
+    PASSWORD_RESET_EMAIL_SEND_FAILED("1018", "password reset email send failed"),
+    PASSWORD_RESET_NOT_ALLOWED("1019", "password reset is not allowed for this account"),
     GENERAL_EXCEPTION("9999", "general exception occurred");
 
     private final String code;

@@ -3,7 +3,9 @@ package com.example.ucakbiletotamasyonu.service.impl;
 import com.example.ucakbiletotamasyonu.dto.AuthRequest;
 import com.example.ucakbiletotamasyonu.dto.AuthResponse;
 import com.example.ucakbiletotamasyonu.dto.DtoUser;
+import com.example.ucakbiletotamasyonu.dto.PasswordResetRequest;
 import com.example.ucakbiletotamasyonu.dto.ResendVerificationEmailRequest;
+import com.example.ucakbiletotamasyonu.dto.ResetPasswordRequest;
 import com.example.ucakbiletotamasyonu.dto.VerifyEmailRequest;
 import com.example.ucakbiletotamasyonu.event.OnRegistrationCompleteEvent;
 import com.example.ucakbiletotamasyonu.exception.BaseException;
@@ -11,12 +13,15 @@ import com.example.ucakbiletotamasyonu.exception.ErrorMessage;
 import com.example.ucakbiletotamasyonu.exception.MessageType;
 import com.example.ucakbiletotamasyonu.jwt.JwtService;
 import com.example.ucakbiletotamasyonu.model.AuthProvider;
+import com.example.ucakbiletotamasyonu.model.PasswordResetToken;
 import com.example.ucakbiletotamasyonu.model.RefreshToken;
 import com.example.ucakbiletotamasyonu.model.User;
+import com.example.ucakbiletotamasyonu.repository.PasswordResetTokenRepository;
 import com.example.ucakbiletotamasyonu.repository.RefreshTokenRepository;
 import com.example.ucakbiletotamasyonu.repository.UserRepository;
 import com.example.ucakbiletotamasyonu.repository.VerificationTokenRepository;
 import com.example.ucakbiletotamasyonu.service.IAuthenticationService;
+import com.example.ucakbiletotamasyonu.service.IEmailService;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -65,6 +70,8 @@ public class AuthenticationServiceImpl implements IAuthenticationService {
     private RefreshTokenRepository refreshTokenRepository;
     @Autowired
     private VerificationTokenRepository verificationTokenRepository;
+    @Autowired
+    private PasswordResetTokenRepository passwordResetTokenRepository;
 
     @Autowired
     private AuthenticationProvider authenticationProvider;
@@ -72,6 +79,8 @@ public class AuthenticationServiceImpl implements IAuthenticationService {
     private JwtService jwtService;
     @Autowired
     private ApplicationEventPublisher applicationEventPublisher;
+    @Autowired
+    private IEmailService emailService;
 
     @Value("${security.cookie.secure:false}")
     private boolean secureCookie;
@@ -110,6 +119,15 @@ public class AuthenticationServiceImpl implements IAuthenticationService {
         return refreshToken;
     }
 
+    private PasswordResetToken createPasswordResetToken(User user) {
+        PasswordResetToken passwordResetToken = new PasswordResetToken();
+        passwordResetToken.setCreateTime(new Date());
+        passwordResetToken.setExpiryDate(new Date(System.currentTimeMillis() + 1000 * 60 * 60 * 4));
+        passwordResetToken.setToken(UUID.randomUUID().toString());
+        passwordResetToken.setUser(user);
+        return passwordResetToken;
+    }
+
     @Override
     @Transactional
     public DtoUser register(AuthRequest input) {
@@ -141,6 +159,51 @@ public class AuthenticationServiceImpl implements IAuthenticationService {
         verificationTokenRepository.deleteByUser(user);
         log.info("old verification tokens deleted for email={}", input.getEmail());
         publishVerificationCodeEvent(user);
+    }
+
+    @Override
+    @Transactional
+    public void requestPasswordReset(PasswordResetRequest input) {
+        log.info("requestPasswordReset service called for email={}", input.getEmail());
+        User user = userRepository.findByEmail(input.getEmail())
+                .orElseThrow(() -> new BaseException(new ErrorMessage(MessageType.EMAIL_NOT_FOUND, input.getEmail())));
+
+        if (user.getProvider() != AuthProvider.LOCAL) {
+            throw new BaseException(new ErrorMessage(MessageType.PASSWORD_RESET_NOT_ALLOWED, input.getEmail()));
+        }
+        if (!user.isEnabled()) {
+            throw new BaseException(new ErrorMessage(MessageType.EMAIL_NOT_VERIFIED, input.getEmail()));
+        }
+
+        passwordResetTokenRepository.deleteByUser(user);
+        PasswordResetToken passwordResetToken = createPasswordResetToken(user);
+        passwordResetTokenRepository.save(passwordResetToken);
+        emailService.sendPasswordResetToken(user.getEmail(), passwordResetToken.getToken());
+    }
+
+    @Override
+    @Transactional
+    public void resetPassword(ResetPasswordRequest input) {
+        var passwordResetToken = passwordResetTokenRepository.findByToken(input.getToken())
+                .orElseThrow(() -> new BaseException(new ErrorMessage(MessageType.PASSWORD_RESET_TOKEN_INVALID, input.getToken())));
+
+        if (passwordResetToken.getExpiryDate() == null || new Date().after(passwordResetToken.getExpiryDate())) {
+            passwordResetTokenRepository.delete(passwordResetToken);
+            throw new BaseException(new ErrorMessage(MessageType.PASSWORD_RESET_TOKEN_EXPIRED, input.getToken()));
+        }
+
+        User user = passwordResetToken.getUser();
+        if (!user.getEmail().equalsIgnoreCase(input.getEmail())) {
+            throw new BaseException(new ErrorMessage(MessageType.PASSWORD_RESET_TOKEN_INVALID, input.getToken()));
+        }
+        if (user.getProvider() != AuthProvider.LOCAL) {
+            throw new BaseException(new ErrorMessage(MessageType.PASSWORD_RESET_NOT_ALLOWED, input.getEmail()));
+        }
+
+        user.setPassword(passwordEncoder.encode(input.getNewPassword()));
+        userRepository.save(user);
+        passwordResetTokenRepository.delete(passwordResetToken);
+        refreshTokenRepository.deleteByUser(user);
     }
 
     @Override

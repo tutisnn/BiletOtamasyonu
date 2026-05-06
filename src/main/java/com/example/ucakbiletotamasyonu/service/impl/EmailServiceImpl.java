@@ -37,4 +37,27 @@ public class EmailServiceImpl implements IEmailService {
                 """.formatted(verificationCode));
         mailSender.send(message);
     }
+
+    @Override
+    public void sendPasswordResetToken(String toEmail, String passwordResetToken) {
+        SimpleMailMessage message = new SimpleMailMessage();
+        message.setTo(toEmail);
+        if (fromAddress != null && !fromAddress.isBlank()) {
+            message.setFrom(fromAddress);
+        }
+        message.setSubject("UcakBiletOtamasyonu password reset request");
+        message.setText("""
+                Hello,
+
+                A password reset was requested for your account.
+
+                Use this token to reset your password:
+                %s
+
+                This token is valid for 4 hours.
+
+                If you did not request a password reset, please ignore this email.
+                """.formatted(passwordResetToken));
+        mailSender.send(message);
+    }
 }

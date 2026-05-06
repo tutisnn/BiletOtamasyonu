@@ -21,6 +21,8 @@ public class SecurityConfig {
     public static final String REGISTER = AUTH_BASE + "/register";
     public static final String VERIFY_EMAIL = AUTH_BASE + "/verify-email";
     public static final String RESEND_VERIFICATION_EMAIL = AUTH_BASE + "/resend-verification-email";
+    public static final String PASSWORD_RESET_REQUEST = AUTH_BASE + "/password-reset-request";
+    public static final String PASSWORD_RESET = AUTH_BASE + "/password-reset";
     public static final String LOGIN = AUTH_BASE + "/login";
     public static final String REFRESH_TOKEN = AUTH_BASE + "/refresh-token";
     public static final String LOGOUT = AUTH_BASE + "/logout";
@@ -50,6 +52,8 @@ public class SecurityConfig {
                         .requestMatchers(PathPatternRequestMatcher.withDefaults().matcher(REGISTER)).permitAll()
                         .requestMatchers(PathPatternRequestMatcher.withDefaults().matcher(VERIFY_EMAIL)).permitAll()
                         .requestMatchers(PathPatternRequestMatcher.withDefaults().matcher(RESEND_VERIFICATION_EMAIL)).permitAll()
+                        .requestMatchers(PathPatternRequestMatcher.withDefaults().matcher(PASSWORD_RESET_REQUEST)).permitAll()
+                        .requestMatchers(PathPatternRequestMatcher.withDefaults().matcher(PASSWORD_RESET)).permitAll()
                         .requestMatchers(PathPatternRequestMatcher.withDefaults().matcher(LOGIN)).permitAll()
                         .requestMatchers(PathPatternRequestMatcher.withDefaults().matcher(REFRESH_TOKEN)).permitAll()
                         .requestMatchers(PathPatternRequestMatcher.withDefaults().matcher(LOGOUT)).permitAll()

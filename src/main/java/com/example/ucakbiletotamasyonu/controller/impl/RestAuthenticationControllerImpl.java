@@ -5,7 +5,9 @@ import com.example.ucakbiletotamasyonu.controller.RootEntity;
 import com.example.ucakbiletotamasyonu.dto.AuthRequest;
 import com.example.ucakbiletotamasyonu.dto.AuthResponse;
 import com.example.ucakbiletotamasyonu.dto.DtoUser;
+import com.example.ucakbiletotamasyonu.dto.PasswordResetRequest;
 import com.example.ucakbiletotamasyonu.dto.ResendVerificationEmailRequest;
+import com.example.ucakbiletotamasyonu.dto.ResetPasswordRequest;
 import com.example.ucakbiletotamasyonu.dto.VerifyEmailRequest;
 import com.example.ucakbiletotamasyonu.service.IAuthenticationService;
 import jakarta.servlet.http.HttpServletRequest;
@@ -46,6 +48,22 @@ public class RestAuthenticationControllerImpl extends RestBaseController impleme
         log.info("resend-verification-email hit for email={}", input.getEmail());
         authenticationService.resendVerificationEmail(input);
         return ok("verification email resent");
+    }
+
+    @PostMapping("/password-reset-request")
+    @Override
+    public RootEntity<String> requestPasswordReset(@Valid @RequestBody PasswordResetRequest input) {
+        log.info("password-reset-request hit for email={}", input.getEmail());
+        authenticationService.requestPasswordReset(input);
+        return ok("password reset email sent");
+    }
+
+    @PostMapping("/password-reset")
+    @Override
+    public RootEntity<String> resetPassword(@Valid @RequestBody ResetPasswordRequest input) {
+        log.info("password-reset hit for email={}", input.getEmail());
+        authenticationService.resetPassword(input);
+        return ok("password reset successful");
     }
 
     @PostMapping("/login")
