@@ -12,6 +12,7 @@ public class FlightMapper {
 
         Flight flight = new Flight();
         flight.setFlightNo(dto.getFlightNo());
+        flight.setAirline(dto.getAirline());
         flight.setDeparture(dto.getDeparture());
         flight.setArrival(dto.getArrival());
         flight.setDepartureTime(dto.getDepartureTime());
@@ -29,6 +30,7 @@ public class FlightMapper {
         FlightDto dto = new FlightDto();
         dto.setId(flight.getId());
         dto.setFlightNo(flight.getFlightNo());
+        dto.setAirline(flight.getAirline());
         dto.setDeparture(flight.getDeparture());
         dto.setArrival(flight.getArrival());
         dto.setDepartureTime(flight.getDepartureTime());

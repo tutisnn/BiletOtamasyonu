@@ -72,3 +72,8 @@ security:
     secret-key: JfVoLB61pmyKbWswGsuxD6TMnPFZzsoOACmSd1mA5hM=
   cookie:
     secure: ${COOKIE_SECURE:false}
+
+stripe:
+  secret-key: ${STRIPE_SECRET_KEY:}
+  success-url: ${STRIPE_SUCCESS_URL:http://localhost:8080/api/payments/success}
+  cancel-url: ${STRIPE_CANCEL_URL:http://localhost:8080/api/payments/cancel}

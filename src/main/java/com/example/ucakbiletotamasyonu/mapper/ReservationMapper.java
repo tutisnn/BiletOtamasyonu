@@ -15,6 +15,11 @@ public class ReservationMapper {
         dto.setCreateTime(reservation.getCreateTime());
         dto.setReservationDate(reservation.getReservationDate());
         dto.setStatus(reservation.getStatus());
+        dto.setFlightClass(reservation.getFlightClass());
+        dto.setBaggageOption(reservation.getBaggageOption());
+        dto.setWifiOption(reservation.getWifiOption());
+        dto.setEntertainmentOption(reservation.getEntertainmentOption());
+        dto.setTotalPrice(reservation.getTotalPrice());
 
         if (reservation.getFlight() != null) {
             dto.setFlightId(reservation.getFlight().getId());

@@ -27,6 +27,10 @@ public class Passenger {
 
     private String passportNumber;
 
+    private String email;
+
+    private String phoneNumber;
+
     @Column(nullable = false)
     private LocalDate birthDate;
 

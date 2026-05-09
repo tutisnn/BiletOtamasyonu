@@ -16,6 +16,7 @@ import java.time.LocalDateTime;
 public class FlightDto {
     private Integer id;
     private String flightNo;
+    private String airline;
     private String departure;
     private String arrival;
     private LocalDateTime departureTime;

@@ -81,6 +81,7 @@ public class FlightServiceImpl implements IFlightService {
                 .orElseThrow(() -> new RuntimeException("Flight not found with id: " + id));
 
         flight.setFlightNo(updatedFlightDto.getFlightNo());
+        flight.setAirline(updatedFlightDto.getAirline());
         flight.setDeparture(updatedFlightDto.getDeparture());
         flight.setArrival(updatedFlightDto.getArrival());
         flight.setDepartureTime(updatedFlightDto.getDepartureTime());
