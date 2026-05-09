@@ -5,8 +5,6 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
-import java.time.LocalDate;
-
 @Getter
 @Setter
 @NoArgsConstructor
@@ -18,6 +16,5 @@ public class PassengerDto {
     private String lastName;
     private String identityNumber;
     private String passportNumber;
-    private LocalDate birthDate;
     private String gender;
 }

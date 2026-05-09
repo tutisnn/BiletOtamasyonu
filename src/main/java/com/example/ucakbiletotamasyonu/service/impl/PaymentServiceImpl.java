@@ -148,9 +148,18 @@ public class PaymentServiceImpl implements IPaymentService {
                 }
                 reservation.setStatus(ReservationStatus.CONFIRMED);
 
+                if (reservation.getSeat() != null) {
+                    reservation.getSeat().setStatus(SeatStatus.SOLD);
+                    seatRepository.save(reservation.getSeat());
+                }
+
                 paymentRepository.save(payment);
                 reservationRepository.save(reservation);
-                ticketService.createTicketFromReservation(reservation.getId());
+                GenericResponse<?> ticketResponse = ticketService.createTicketFromReservation(reservation.getId());
+
+                if (ticketResponse.getData() == null) {
+                    return GenericResponse.error("Payment succeeded but ticket could not be created");
+                }
 
                 return GenericResponse.success(paymentMapper.paymentToDto(payment));
             }

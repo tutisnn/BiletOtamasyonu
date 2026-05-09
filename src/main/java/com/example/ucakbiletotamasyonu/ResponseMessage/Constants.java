@@ -40,6 +40,7 @@ public class Constants {
     public static final String INVALID_ROUTE = "Departure and arrival cannot be the same";
     public static final String INVALID_DATE = "Invalid flight date";
     public static final String INVALID_PAYMENT = "Payment information is invalid";
+    public static final String INVALID_SEAT_CLASS = "Selected seat does not match selected flight class";
 
     private Constants() {
     }

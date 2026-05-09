@@ -4,8 +4,6 @@ import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
 
-import java.time.LocalDate;
-
 @Entity
 @Getter
 @Setter
@@ -30,9 +28,6 @@ public class Passenger {
     private String email;
 
     private String phoneNumber;
-
-    @Column(nullable = false)
-    private LocalDate birthDate;
 
     private String gender;
 

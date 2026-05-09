@@ -1,11 +1,10 @@
 package com.example.ucakbiletotamasyonu.model;
 
+import com.example.ucakbiletotamasyonu.enums.FlightClass;
 import com.example.ucakbiletotamasyonu.enums.SeatStatus;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
-
-import java.util.List;
 
 @Entity
 @Getter
@@ -23,6 +22,10 @@ public class Seat {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private SeatStatus status;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private FlightClass flightClass;
 
     @ManyToOne
     @JoinColumn(name = "flight_id", nullable = false)

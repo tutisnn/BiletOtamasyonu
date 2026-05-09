@@ -67,6 +67,14 @@ public class ReservationServiceImpl implements IReservationService {
             return GenericResponse.error(Constants.INVALID_ROUTE);
         }
 
+        if (reservationCreateDto.getFlightClass() == null) {
+            return GenericResponse.error(Constants.INVALID_SEAT_CLASS);
+        }
+
+        if (seat.getFlightClass() != reservationCreateDto.getFlightClass()) {
+            return GenericResponse.error(Constants.INVALID_SEAT_CLASS);
+        }
+
         Passenger passenger = new Passenger();
         passenger.setFirstName(reservationCreateDto.getFirstName());
         passenger.setLastName(reservationCreateDto.getLastName());

@@ -14,6 +14,7 @@ public class SeatMapper {
         Seat seat = new Seat();
         seat.setSeatNumber(dto.getSeatNumber());
         seat.setStatus(dto.getStatus());
+        seat.setFlightClass(dto.getFlightClass());
         seat.setFlight(flight);
         return seat;
     }
@@ -25,6 +26,7 @@ public class SeatMapper {
         dto.setId(seat.getId());
         dto.setSeatNumber(seat.getSeatNumber());
         dto.setStatus(seat.getStatus());
+        dto.setFlightClass(seat.getFlightClass());
 
         if (seat.getFlight() != null) {
             dto.setFlightId(seat.getFlight().getId());

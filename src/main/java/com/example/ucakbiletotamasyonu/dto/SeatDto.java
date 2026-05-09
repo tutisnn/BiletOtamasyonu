@@ -1,5 +1,6 @@
 package com.example.ucakbiletotamasyonu.dto;
 
+import com.example.ucakbiletotamasyonu.enums.FlightClass;
 import com.example.ucakbiletotamasyonu.enums.SeatStatus;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -17,4 +18,5 @@ public class SeatDto {
     private String flightNum;
     private String seatNumber;
     private SeatStatus status;
+    private FlightClass flightClass;
 }

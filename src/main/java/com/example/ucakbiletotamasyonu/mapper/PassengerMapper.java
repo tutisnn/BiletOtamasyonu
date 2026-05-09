@@ -15,7 +15,6 @@ public class PassengerMapper {
         passenger.setLastName(dto.getLastName());
         passenger.setIdentityNumber(dto.getIdentityNumber());
         passenger.setPassportNumber(dto.getPassportNumber());
-        passenger.setBirthDate(dto.getBirthDate());
         passenger.setGender(dto.getGender());
         return passenger;
     }
@@ -29,7 +28,6 @@ public class PassengerMapper {
         dto.setLastName(passenger.getLastName());
         dto.setIdentityNumber(passenger.getIdentityNumber());
         dto.setPassportNumber(passenger.getPassportNumber());
-        dto.setBirthDate(passenger.getBirthDate());
         dto.setGender(passenger.getGender());
         return dto;
     }

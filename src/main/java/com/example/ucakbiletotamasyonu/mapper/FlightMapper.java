@@ -18,8 +18,6 @@ public class FlightMapper {
         flight.setDepartureTime(dto.getDepartureTime());
         flight.setArrivalTime(dto.getArrivalTime());
         flight.setPrice(dto.getPrice());
-        flight.setCapacity(dto.getCapacity());
-        flight.setAvailableSeats(dto.getAvailableSeats());
         flight.setStatus(dto.getStatus());
         return flight;
     }
