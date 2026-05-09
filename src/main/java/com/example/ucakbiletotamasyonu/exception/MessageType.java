@@ -20,6 +20,8 @@ public enum MessageType {
     PASSWORD_RESET_TOKEN_EXPIRED("1017", "password reset token is expired"),
     PASSWORD_RESET_EMAIL_SEND_FAILED("1018", "password reset email send failed"),
     PASSWORD_RESET_NOT_ALLOWED("1019", "password reset is not allowed for this account"),
+    VOICE_ASSISTANT_FAILED("1020", "voice assistant processing failed"),
+    VOICE_AUDIO_NOT_FOUND("1021", "voice audio not found"),
     GENERAL_EXCEPTION("9999", "general exception occurred");
 
     private final String code;

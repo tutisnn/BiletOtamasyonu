@@ -42,6 +42,30 @@ spring:
       hibernate:
         format_sql: true
         default_schema: UcakBiletOtamasyonu
+  ai:
+    model:
+      chat: openai
+      audio:
+        transcription: openai
+        speech: openai
+    openai:
+      api-key: ${OPENAI_API_KEY:}
+      # api-base-url: ${OPENAI_API_BASE_URL:https://api.openai.com}
+      chat:
+        options:
+          model: gpt-4o-mini
+          temperature: 0.7
+      audio:
+        transcription:
+          options:
+            model: gpt-4o-mini-transcribe
+            response-format: text
+            temperature: 0
+        speech:
+          options:
+            model: gpt-4o-mini-tts
+            voice: nova
+            response-format: mp3
 
 security:
   jwt:

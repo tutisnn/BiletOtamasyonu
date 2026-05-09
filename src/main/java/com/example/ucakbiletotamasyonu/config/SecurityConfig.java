@@ -18,6 +18,9 @@ import org.springframework.security.web.servlet.util.matcher.PathPatternRequestM
 public class SecurityConfig {
 
     public static final String AUTH_BASE = "/api/v1/auth";
+    public static final String SWAGGER_UI = "/swagger-ui/**";
+    public static final String SWAGGER_UI_HTML = "/swagger-ui.html";
+    public static final String API_DOCS = "/v3/api-docs/**";
     public static final String REGISTER = AUTH_BASE + "/register";
     public static final String VERIFY_EMAIL = AUTH_BASE + "/verify-email";
     public static final String RESEND_VERIFICATION_EMAIL = AUTH_BASE + "/resend-verification-email";
@@ -26,6 +29,7 @@ public class SecurityConfig {
     public static final String LOGIN = AUTH_BASE + "/login";
     public static final String REFRESH_TOKEN = AUTH_BASE + "/refresh-token";
     public static final String LOGOUT = AUTH_BASE + "/logout";
+    public static final String VOICE_BASE = "/api/v1/voice";
 
 
 
@@ -49,6 +53,9 @@ public class SecurityConfig {
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED))
                 .authenticationProvider(authenticationProvider)
                 .authorizeHttpRequests(auth -> auth
+                    .requestMatchers(PathPatternRequestMatcher.withDefaults().matcher(SWAGGER_UI)).permitAll()
+                    .requestMatchers(PathPatternRequestMatcher.withDefaults().matcher(SWAGGER_UI_HTML)).permitAll()
+                    .requestMatchers(PathPatternRequestMatcher.withDefaults().matcher(API_DOCS)).permitAll()
                         .requestMatchers(PathPatternRequestMatcher.withDefaults().matcher(REGISTER)).permitAll()
                         .requestMatchers(PathPatternRequestMatcher.withDefaults().matcher(VERIFY_EMAIL)).permitAll()
                         .requestMatchers(PathPatternRequestMatcher.withDefaults().matcher(RESEND_VERIFICATION_EMAIL)).permitAll()
@@ -57,6 +64,7 @@ public class SecurityConfig {
                         .requestMatchers(PathPatternRequestMatcher.withDefaults().matcher(LOGIN)).permitAll()
                         .requestMatchers(PathPatternRequestMatcher.withDefaults().matcher(REFRESH_TOKEN)).permitAll()
                         .requestMatchers(PathPatternRequestMatcher.withDefaults().matcher(LOGOUT)).permitAll()
+                        .requestMatchers(PathPatternRequestMatcher.withDefaults().matcher(VOICE_BASE + "/**")).authenticated()
                         .requestMatchers(PathPatternRequestMatcher.withDefaults().matcher("/oauth2/**")).permitAll()
                         .requestMatchers(PathPatternRequestMatcher.withDefaults().matcher("/login/oauth2/**")).permitAll()
                         .requestMatchers(PathPatternRequestMatcher.withDefaults().matcher("/error")).permitAll()
@@ -67,4 +75,3 @@ public class SecurityConfig {
         return http.build();
     }
 }
-

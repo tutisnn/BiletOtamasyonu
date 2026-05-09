@@ -1,6 +1,7 @@
 package com.example.ucakbiletotamasyonu.handler;
 
 import com.example.ucakbiletotamasyonu.exception.BaseException;
+import com.example.ucakbiletotamasyonu.exception.MessageType;
 import java.net.Inet4Address;
 import java.net.UnknownHostException;
 import java.util.ArrayList;
@@ -22,6 +23,9 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(value = BaseException.class)
     public ResponseEntity<ApiError<?>> handleBaseException(BaseException ex, WebRequest request) {
+        if (ex.getErrorMessage().getMessageType() == MessageType.VOICE_AUDIO_NOT_FOUND) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(createApiError(ex.getMessage(), request));
+        }
         return ResponseEntity.badRequest().body(createApiError(ex.getMessage(), request));
     }
 

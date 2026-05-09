@@ -1,5 +1,7 @@
 ﻿# UcakBiletOtamasyonu
 
+Swagger UI: http://localhost:8080/swagger-ui/index.html#/
+
 ## PostgreSQL Docker Kurulumu
 
 ```bash
@@ -264,3 +266,26 @@ Akış şu şekildedir:
 }
 ```
 ## Kaynaklar
+## Voice Assistant
+
+Sesli asistan backend akışı:
+
+- `POST /api/v1/voice/process`
+- `multipart/form-data` bekler
+- `audio` alanı zorunludur
+- `conversationId` opsiyoneldir
+- kullanıcı kimliği için authenticated istek beklenir
+
+### Postman örneği
+
+- Body > form-data
+- `audio` = dosya
+- `conversationId` = `demo-1` (opsiyonel)
+
+### Conversation Reset
+
+```http
+DELETE /api/v1/voice/conversation?conversationId=demo-1
+```
+
+Bu endpoint ilgili konuşma hafızasını temizler.
