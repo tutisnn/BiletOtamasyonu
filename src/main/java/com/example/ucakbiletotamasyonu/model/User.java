@@ -5,7 +5,6 @@ import java.util.List;
 
 import com.example.ucakbiletotamasyonu.enums.AuthProvider;
 import jakarta.persistence.*;
-import org.hibernate.annotations.Where;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
@@ -18,7 +17,6 @@ import lombok.Setter;
 @Table(name = "users")
 @Getter
 @Setter
-@Where(clause="deleted=false")
 @NoArgsConstructor
 @AllArgsConstructor
 public class User extends BaseEntity implements UserDetails{
