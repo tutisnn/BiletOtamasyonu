@@ -12,7 +12,7 @@ import com.example.ucakbiletotamasyonu.exception.BaseException;
 import com.example.ucakbiletotamasyonu.exception.ErrorMessage;
 import com.example.ucakbiletotamasyonu.exception.MessageType;
 import com.example.ucakbiletotamasyonu.jwt.JwtService;
-import com.example.ucakbiletotamasyonu.model.AuthProvider;
+import com.example.ucakbiletotamasyonu.enums.AuthProvider;
 import com.example.ucakbiletotamasyonu.model.PasswordResetToken;
 import com.example.ucakbiletotamasyonu.model.RefreshToken;
 import com.example.ucakbiletotamasyonu.model.User;

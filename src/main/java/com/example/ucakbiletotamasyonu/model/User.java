@@ -1,10 +1,9 @@
 package com.example.ucakbiletotamasyonu.model;
 
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 
-import com.example.ucakbiletotamasyonu.enums.ReservationStatus;
+import com.example.ucakbiletotamasyonu.enums.AuthProvider;
 import jakarta.persistence.*;
 import org.hibernate.annotations.Where;
 import org.springframework.security.core.GrantedAuthority;

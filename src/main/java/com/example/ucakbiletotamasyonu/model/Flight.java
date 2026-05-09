@@ -46,6 +46,9 @@ public class Flight {
     @Column( nullable = false)
     private Integer availableSeats;
 
+    @Column( nullable = false)
+    private String airline;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private FlightStatus status;
