@@ -6,7 +6,7 @@ import lombok.Setter;
 
 @Getter
 @Setter
-public class DtoUser extends DtoBase {
+public class UserDto extends DtoBase {
 
     private String email;
     private Boolean enabled;

@@ -3,14 +3,12 @@ package com.example.ucakbiletotamasyonu.model;
 import java.util.Collection;
 import java.util.List;
 
+import com.example.ucakbiletotamasyonu.enums.AuthProvider;
+import jakarta.persistence.*;
+import org.hibernate.annotations.Where;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
-import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -20,14 +18,15 @@ import lombok.Setter;
 @Table(name = "users")
 @Getter
 @Setter
+@Where(clause="deleted=false")
 @NoArgsConstructor
 @AllArgsConstructor
 public class User extends BaseEntity implements UserDetails{
 
-    @Column(name = "email", unique = true)
+    @Column(name = "email", unique = true, nullable = false)
     private String email;
 
-    @Column(name = "password", nullable = true)
+    @Column(name = "password", nullable = false)
     private String password;
 
     @Enumerated(EnumType.STRING)
@@ -36,6 +35,8 @@ public class User extends BaseEntity implements UserDetails{
 
     @Column(name = "enabled", nullable = false)
     private boolean enabled;
+
+    private boolean deleted=false;
 
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
@@ -71,5 +72,8 @@ public class User extends BaseEntity implements UserDetails{
     public boolean isEnabled() {
         return enabled;
     }
+
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL)
+    private List<Reservation> reservations;
 }
 

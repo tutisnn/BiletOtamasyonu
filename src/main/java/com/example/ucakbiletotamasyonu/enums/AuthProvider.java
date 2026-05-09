@@ -1,4 +1,4 @@
-package com.example.ucakbiletotamasyonu.model;
+package com.example.ucakbiletotamasyonu.enums;
 
 public enum AuthProvider {
     LOCAL,
