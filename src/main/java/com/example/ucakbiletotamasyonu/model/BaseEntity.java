@@ -12,7 +12,7 @@ import java.util.Date;
 public class BaseEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    private Integer id;  //it was Long. if you want you can change it back
     @Column(name = "create_time")
     @DateTimeFormat(iso=DateTimeFormat.ISO.DATE_TIME)
     private Date createTime;

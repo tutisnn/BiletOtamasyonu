@@ -2,9 +2,8 @@ package com.example.ucakbiletotamasyonu.service;
 
 import com.example.ucakbiletotamasyonu.dto.AuthRequest;
 import com.example.ucakbiletotamasyonu.dto.AuthResponse;
-import com.example.ucakbiletotamasyonu.dto.DtoUser;
+import com.example.ucakbiletotamasyonu.dto.UserDto;
 import com.example.ucakbiletotamasyonu.dto.PasswordResetRequest;
-import com.example.ucakbiletotamasyonu.dto.RefreshTokenRequest;
 import com.example.ucakbiletotamasyonu.dto.ResendVerificationEmailRequest;
 import com.example.ucakbiletotamasyonu.dto.ResetPasswordRequest;
 import com.example.ucakbiletotamasyonu.dto.VerifyEmailRequest;
@@ -15,8 +14,8 @@ import org.springframework.security.oauth2.core.user.OAuth2User;
 
 public interface IAuthenticationService {
 
-    public DtoUser register(AuthRequest input);
-    public DtoUser verifyEmail(VerifyEmailRequest input);
+    public UserDto register(AuthRequest input);
+    public UserDto verifyEmail(VerifyEmailRequest input);
     public void resendVerificationEmail(ResendVerificationEmailRequest input);
     public void requestPasswordReset(PasswordResetRequest input);
     public void resetPassword(ResetPasswordRequest input);

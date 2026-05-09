@@ -2,7 +2,7 @@ package com.example.ucakbiletotamasyonu.service.impl;
 
 import com.example.ucakbiletotamasyonu.dto.AuthRequest;
 import com.example.ucakbiletotamasyonu.dto.AuthResponse;
-import com.example.ucakbiletotamasyonu.dto.DtoUser;
+import com.example.ucakbiletotamasyonu.dto.UserDto;
 import com.example.ucakbiletotamasyonu.dto.PasswordResetRequest;
 import com.example.ucakbiletotamasyonu.dto.ResendVerificationEmailRequest;
 import com.example.ucakbiletotamasyonu.dto.ResetPasswordRequest;
@@ -130,8 +130,8 @@ public class AuthenticationServiceImpl implements IAuthenticationService {
 
     @Override
     @Transactional
-    public DtoUser register(AuthRequest input) {
-        DtoUser dtoUser = new DtoUser();
+    public UserDto register(AuthRequest input) {
+        UserDto userDto = new UserDto();
 
         if (userRepository.findByEmail(input.getEmail()).isPresent()) {
             throw new BaseException(new ErrorMessage(MessageType.EMAIL_ALREADY_REGISTERED, input.getEmail()));
@@ -140,8 +140,8 @@ public class AuthenticationServiceImpl implements IAuthenticationService {
         User savedUser = userRepository.save(createUser(input));
         publishVerificationCodeEvent(savedUser);
 
-        BeanUtils.copyProperties(savedUser, dtoUser);
-        return dtoUser;
+        BeanUtils.copyProperties(savedUser, userDto);
+        return userDto;
     }
 
     @Override
@@ -208,7 +208,7 @@ public class AuthenticationServiceImpl implements IAuthenticationService {
 
     @Override
     @Transactional
-    public DtoUser verifyEmail(VerifyEmailRequest input) {
+    public UserDto verifyEmail(VerifyEmailRequest input) {
         var verificationToken = verificationTokenRepository.findByToken(input.getVerificationCode())
                 .orElseThrow(() -> new BaseException(new ErrorMessage(MessageType.VERIFICATION_CODE_INVALID, input.getVerificationCode())));
 
@@ -225,9 +225,9 @@ public class AuthenticationServiceImpl implements IAuthenticationService {
         User savedUser = userRepository.save(user);
         verificationTokenRepository.delete(verificationToken);
 
-        DtoUser dtoUser = new DtoUser();
-        BeanUtils.copyProperties(savedUser, dtoUser);
-        return dtoUser;
+        UserDto userDto = new UserDto();
+        BeanUtils.copyProperties(savedUser, userDto);
+        return userDto;
     }
 
     @Override

@@ -2,7 +2,7 @@ package com.example.ucakbiletotamasyonu.controller;
 
 import com.example.ucakbiletotamasyonu.dto.AuthRequest;
 import com.example.ucakbiletotamasyonu.dto.AuthResponse;
-import com.example.ucakbiletotamasyonu.dto.DtoUser;
+import com.example.ucakbiletotamasyonu.dto.UserDto;
 import com.example.ucakbiletotamasyonu.dto.PasswordResetRequest;
 import com.example.ucakbiletotamasyonu.dto.ResendVerificationEmailRequest;
 import com.example.ucakbiletotamasyonu.dto.ResetPasswordRequest;
@@ -13,8 +13,8 @@ import org.springframework.security.core.Authentication;
 
 public interface IRestAuthenticationController {
 
-    public RootEntity<DtoUser> register(AuthRequest input);
-    public RootEntity<DtoUser> verifyEmail(VerifyEmailRequest input);
+    public RootEntity<UserDto> register(AuthRequest input);
+    public RootEntity<UserDto> verifyEmail(VerifyEmailRequest input);
     public RootEntity<String> resendVerificationEmail(ResendVerificationEmailRequest input);
     public RootEntity<String> requestPasswordReset(PasswordResetRequest input);
     public RootEntity<String> resetPassword(ResetPasswordRequest input);

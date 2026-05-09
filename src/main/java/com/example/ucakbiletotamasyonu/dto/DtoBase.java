@@ -9,7 +9,7 @@ import lombok.Setter;
 @Setter
 public class DtoBase {
 
-    private Long id;
+    private Integer id; // you can change back to long
 
     private Date createTime;
 }
