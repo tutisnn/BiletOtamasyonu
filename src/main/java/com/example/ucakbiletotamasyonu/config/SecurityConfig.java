@@ -38,6 +38,7 @@ public class SecurityConfig {
     public static final String REFRESH_TOKEN = AUTH_BASE + "/refresh-token";
     public static final String LOGOUT = AUTH_BASE + "/logout";
     public static final String VOICE_BASE = "/api/v1/voice";
+    public static final String CHAT_BASE = "/api/v1/chat";
     public static final String PAYMENT_BASE = "/api/payments";
     public static final String FLIGHT_SEARCH = "/api/flights/search";
 
@@ -97,7 +98,8 @@ public class SecurityConfig {
                         .requestMatchers(PathPatternRequestMatcher.withDefaults().matcher(LOGIN)).permitAll()
                         .requestMatchers(PathPatternRequestMatcher.withDefaults().matcher(REFRESH_TOKEN)).permitAll()
                         .requestMatchers(PathPatternRequestMatcher.withDefaults().matcher(LOGOUT)).permitAll()
-                        .requestMatchers(PathPatternRequestMatcher.withDefaults().matcher(VOICE_BASE + "/**")).authenticated()
+                        .requestMatchers(PathPatternRequestMatcher.withDefaults().matcher(CHAT_BASE + "/**")).permitAll()
+                        .requestMatchers(PathPatternRequestMatcher.withDefaults().matcher(VOICE_BASE + "/**")).permitAll()
                         .requestMatchers(PathPatternRequestMatcher.withDefaults().matcher(FLIGHT_SEARCH)).permitAll()
                         .requestMatchers(PathPatternRequestMatcher.withDefaults().matcher(PAYMENT_BASE + "/success")).permitAll()
                         .requestMatchers(PathPatternRequestMatcher.withDefaults().matcher(PAYMENT_BASE + "/cancel")).permitAll()
