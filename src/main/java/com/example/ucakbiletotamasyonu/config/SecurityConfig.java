@@ -42,6 +42,7 @@ public class SecurityConfig {
     public static final String PAYMENT_BASE = "/api/payments";
     public static final String FLIGHT_SEARCH = "/api/flights/search";
     public static final String FLIGHT_SAVE = "/api/flights/save";
+    public static final String FLIGHT_GET_ALL = "/api/flights/getAll";
 
 
 
@@ -103,6 +104,7 @@ public class SecurityConfig {
                         .requestMatchers(PathPatternRequestMatcher.withDefaults().matcher(VOICE_BASE + "/**")).permitAll()
                         .requestMatchers(PathPatternRequestMatcher.withDefaults().matcher(FLIGHT_SEARCH)).permitAll()
                         .requestMatchers(PathPatternRequestMatcher.withDefaults().matcher(FLIGHT_SAVE)).permitAll()
+                        .requestMatchers(PathPatternRequestMatcher.withDefaults().matcher(FLIGHT_GET_ALL)).permitAll()
                         .requestMatchers(PathPatternRequestMatcher.withDefaults().matcher(PAYMENT_BASE + "/success")).permitAll()
                         .requestMatchers(PathPatternRequestMatcher.withDefaults().matcher(PAYMENT_BASE + "/cancel")).permitAll()
                         .requestMatchers(PathPatternRequestMatcher.withDefaults().matcher("/oauth2/**")).permitAll()
