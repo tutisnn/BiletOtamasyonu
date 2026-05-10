@@ -73,6 +73,10 @@ security:
   cookie:
     secure: ${COOKIE_SECURE:false}
 
+app:
+  cors:
+    allowed-origin-patterns: ${CORS_ALLOWED_ORIGIN_PATTERNS:http://localhost:*,http://127.0.0.1:*,http://[::1]:*}
+
 stripe:
   secret-key: ${STRIPE_SECRET_KEY:}
   success-url: ${STRIPE_SUCCESS_URL:http://localhost:8080/api/payments/success}
