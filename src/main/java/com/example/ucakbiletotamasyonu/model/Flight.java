@@ -53,6 +53,9 @@ public class Flight {
     @Column(nullable = false)
     private FlightStatus status;
 
+    @Column(nullable = false)
+    private boolean deleted = false;
+
     @OneToMany(mappedBy = "flight", cascade=CascadeType.ALL)
     private List<Seat> seats;
 }

@@ -9,6 +9,7 @@ import com.example.ucakbiletotamasyonu.enums.SeatStatus;
 import com.example.ucakbiletotamasyonu.mapper.PaymentMapper;
 import com.example.ucakbiletotamasyonu.model.Payment;
 import com.example.ucakbiletotamasyonu.model.Reservation;
+import com.example.ucakbiletotamasyonu.repository.FlightRepository;
 import com.example.ucakbiletotamasyonu.repository.PaymentRepository;
 import com.example.ucakbiletotamasyonu.repository.ReservationRepository;
 import com.example.ucakbiletotamasyonu.repository.SeatRepository;
@@ -35,6 +36,9 @@ public class PaymentServiceImpl implements IPaymentService {
 
     @Autowired
     private ReservationRepository reservationRepository;
+
+    @Autowired
+    private FlightRepository flightRepository;
 
     @Autowired
     private SeatRepository seatRepository;
@@ -158,7 +162,7 @@ public class PaymentServiceImpl implements IPaymentService {
                 GenericResponse<?> ticketResponse = ticketService.createTicketFromReservation(reservation.getId());
 
                 if (ticketResponse.getData() == null) {
-                    return GenericResponse.error("Payment succeeded but ticket could not be created");
+                    throw new RuntimeException("Ticket could not be created after payment");
                 }
 
                 return GenericResponse.success(paymentMapper.paymentToDto(payment));
@@ -179,6 +183,10 @@ public class PaymentServiceImpl implements IPaymentService {
             return GenericResponse.error(Constants.EMPTY_RESERVATION);
         }
 
+        if (reservation.getStatus() != ReservationStatus.PENDING) {
+            return GenericResponse.error(Constants.ONLY_PENDING_PAYMENT_CAN_BE_CANCELLED);
+        }
+
         Payment payment = paymentRepository.findByReservation(reservation).orElse(null);
         if (payment == null) {
             payment = new Payment();
@@ -193,6 +201,7 @@ public class PaymentServiceImpl implements IPaymentService {
         if (reservation.getSeat() != null) {
             reservation.getSeat().setStatus(SeatStatus.AVAILABLE);
             seatRepository.save(reservation.getSeat());
+            increaseAvailableSeats(reservation);
         }
         reservationRepository.save(reservation);
 
@@ -213,5 +222,18 @@ public class PaymentServiceImpl implements IPaymentService {
 
     private Long toStripeAmount(BigDecimal amount) {
         return amount.multiply(BigDecimal.valueOf(100)).longValue();
+    }
+
+    private void increaseAvailableSeats(Reservation reservation) {
+        if (reservation == null || reservation.getFlight() == null) {
+            return;
+        }
+
+        if (reservation.getFlight().getAvailableSeats() == null) {
+            return;
+        }
+
+        reservation.getFlight().setAvailableSeats(reservation.getFlight().getAvailableSeats() + 1);
+        flightRepository.save(reservation.getFlight());
     }
 }

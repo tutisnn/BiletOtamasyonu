@@ -2,6 +2,7 @@ package com.example.ucakbiletotamasyonu.model;
 
 import com.example.ucakbiletotamasyonu.enums.BaggageOption;
 import com.example.ucakbiletotamasyonu.enums.FlightClass;
+import com.example.ucakbiletotamasyonu.enums.PassengerType;
 import com.example.ucakbiletotamasyonu.enums.ReservationStatus;
 import com.example.ucakbiletotamasyonu.enums.WifiOption;
 import com.example.ucakbiletotamasyonu.enums.EntertainmentOption;
@@ -29,6 +30,10 @@ public class Reservation extends BaseEntity {
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
+    private PassengerType passengerType = PassengerType.ADULT;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
     private BaggageOption baggageOption;
 
     @Enumerated(EnumType.STRING)
@@ -45,7 +50,7 @@ public class Reservation extends BaseEntity {
     @JoinColumn(name = "flight_id", nullable = false)
     private Flight flight;
 
-    @OneToOne
+    @ManyToOne
     @JoinColumn(name = "seat_id", nullable = false)
     private Seat seat;
 

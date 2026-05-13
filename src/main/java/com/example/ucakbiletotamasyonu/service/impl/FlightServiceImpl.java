@@ -37,7 +37,7 @@ public class FlightServiceImpl implements IFlightService {
             throw new RuntimeException("Flight data cannot be null");
         }
 
-        Optional<Flight> existingFlight = flightRepository.findByFlightNo(flightDto.getFlightNo());
+        Optional<Flight> existingFlight = flightRepository.findByFlightNoAndDeletedFalse(flightDto.getFlightNo());
         if (existingFlight.isPresent()) {
             throw new RuntimeException("Flight already exists with flight number: " + flightDto.getFlightNo());
         }
@@ -57,7 +57,7 @@ public class FlightServiceImpl implements IFlightService {
 
     @Override
     public List<FlightDto> getAllFlights() {
-        List<Flight> flights = flightRepository.findAll();
+        List<Flight> flights = flightRepository.findByDeletedFalse();
         return flights.stream()
                 .map(flightMapper::flightToDto)
                 .toList();
@@ -65,7 +65,7 @@ public class FlightServiceImpl implements IFlightService {
 
     @Override
     public FlightDto getFlightById(Integer id) {
-        Flight flight = flightRepository.findById(id)
+        Flight flight = flightRepository.findByIdAndDeletedFalse(id)
                 .orElseThrow(() -> new RuntimeException("Flight not found with id: " + id));
 
         return flightMapper.flightToDto(flight);
@@ -73,7 +73,7 @@ public class FlightServiceImpl implements IFlightService {
 
     @Override
     public List<FlightDto> searchFlights(String departure, String arrival, LocalDate departureDate) {
-        List<Flight> flights = flightRepository.findByDepartureAndArrival(departure, arrival);
+        List<Flight> flights = flightRepository.findByDepartureAndArrivalAndDeletedFalse(departure, arrival);
 
         return flights.stream()
                 .filter(flight -> flight.getDepartureTime() != null)
@@ -84,16 +84,16 @@ public class FlightServiceImpl implements IFlightService {
 
     @Override
     public void deleteFlightById(Integer id) {
-        if (!flightRepository.existsById(id)) {
-            throw new RuntimeException("Flight not found with id: " + id);
-        }
-
-        flightRepository.deleteById(id);
+        Flight flight = flightRepository.findByIdAndDeletedFalse(id)
+                .orElseThrow(() -> new RuntimeException("Flight not found with id: " + id));
+        flight.setDeleted(true);
+        flight.setStatus(com.example.ucakbiletotamasyonu.enums.FlightStatus.CANCELLED);
+        flightRepository.save(flight);
     }
 
     @Override
     public FlightDto updateFlight(Integer id, FlightDto updatedFlightDto) {
-        Flight flight = flightRepository.findById(id)
+        Flight flight = flightRepository.findByIdAndDeletedFalse(id)
                 .orElseThrow(() -> new RuntimeException("Flight not found with id: " + id));
 
         flight.setFlightNo(updatedFlightDto.getFlightNo());

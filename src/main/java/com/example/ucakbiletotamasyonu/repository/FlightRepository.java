@@ -10,9 +10,15 @@ import java.util.Optional;
 @Repository
 public interface FlightRepository extends JpaRepository<Flight, Integer> {
 
-    Optional<Flight> findByFlightNo(String flightNo);
+    Optional<Flight> findByFlightNoAndDeletedFalse(String flightNo);
 
-    List<Flight> findByDepartureAndArrival(String departure, String arrival);
+    List<Flight> findByDepartureAndArrivalAndDeletedFalse(String departure, String arrival);
 
-    List<Flight> findByStatus(com.example.ucakbiletotamasyonu.enums.FlightStatus status);
+    List<Flight> findByStatusAndDeletedFalse(com.example.ucakbiletotamasyonu.enums.FlightStatus status);
+
+    List<Flight> findByDeletedFalse();
+
+    Optional<Flight> findByIdAndDeletedFalse(Integer id);
+
+    boolean existsByIdAndDeletedFalse(Integer id);
 }

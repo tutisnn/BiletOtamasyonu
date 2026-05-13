@@ -41,6 +41,12 @@ public class Constants {
     public static final String INVALID_DATE = "Invalid flight date";
     public static final String INVALID_PAYMENT = "Payment information is invalid";
     public static final String INVALID_SEAT_CLASS = "Selected seat does not match selected flight class";
+    public static final String INVALID_SEAT_FLIGHT = "Selected seat does not belong to the selected flight";
+    public static final String CONFIRMED_RESERVATION_DELETE_ERROR = "Confirmed reservation cannot be deleted";
+    public static final String CONFIRMED_RESERVATION_CANCEL_ERROR = "Confirmed reservation cannot be cancelled";
+    public static final String ONLY_PENDING_CAN_BE_CANCELLED = "Only pending reservations can be cancelled";
+    public static final String ONLY_PENDING_CAN_BE_DELETED = "Only pending reservations can be deleted";
+    public static final String ONLY_PENDING_PAYMENT_CAN_BE_CANCELLED = "Only pending reservation payments can be cancelled";
 
     private Constants() {
     }

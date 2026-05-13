@@ -4,6 +4,7 @@ import com.example.ucakbiletotamasyonu.ResponseMessage.Constants;
 import com.example.ucakbiletotamasyonu.ResponseMessage.GenericResponse;
 import com.example.ucakbiletotamasyonu.dto.ReservationCreateDto;
 import com.example.ucakbiletotamasyonu.dto.ReservationDto;
+import com.example.ucakbiletotamasyonu.enums.PassengerType;
 import com.example.ucakbiletotamasyonu.enums.ReservationStatus;
 import com.example.ucakbiletotamasyonu.enums.SeatStatus;
 import com.example.ucakbiletotamasyonu.mapper.ReservationMapper;
@@ -59,6 +60,10 @@ public class ReservationServiceImpl implements IReservationService {
         if (seat == null) return GenericResponse.error(Constants.EMPTY_SEAT);
         if (user == null) return GenericResponse.error(Constants.EMPTY_USER);
 
+        if (seat.getFlight() == null || !seat.getFlight().getId().equals(flight.getId())) {
+            return GenericResponse.error(Constants.INVALID_SEAT_FLIGHT);
+        }
+
         if (seat.getStatus() != SeatStatus.AVAILABLE) {
             return GenericResponse.error(Constants.SEAT_ALREADY_RESERVED);
         }
@@ -93,6 +98,11 @@ public class ReservationServiceImpl implements IReservationService {
         reservation.setReservationDate(LocalDateTime.now());
         reservation.setStatus(ReservationStatus.PENDING);
         reservation.setFlightClass(reservationCreateDto.getFlightClass());
+        reservation.setPassengerType(
+                reservationCreateDto.getPassengerType() != null
+                        ? reservationCreateDto.getPassengerType()
+                        : PassengerType.ADULT
+        );
         reservation.setBaggageOption(reservationCreateDto.getBaggageOption());
         reservation.setWifiOption(reservationCreateDto.getWifiOption());
         reservation.setEntertainmentOption(reservationCreateDto.getEntertainmentOption());
@@ -100,6 +110,7 @@ public class ReservationServiceImpl implements IReservationService {
 
         seat.setStatus(SeatStatus.RESERVED);
         seatRepository.save(seat);
+        decreaseAvailableSeats(flight);
 
         Reservation savedReservation = reservationRepository.save(reservation);
         return GenericResponse.success(reservationMapper.reservationToDto(savedReservation));
@@ -140,9 +151,14 @@ public class ReservationServiceImpl implements IReservationService {
 
         Reservation reservation = optionalReservation.get();
 
+        if (reservation.getStatus() != ReservationStatus.PENDING) {
+            return GenericResponse.error(Constants.ONLY_PENDING_CAN_BE_DELETED);
+        }
+
         if (reservation.getSeat() != null) {
             reservation.getSeat().setStatus(SeatStatus.AVAILABLE);
             seatRepository.save(reservation.getSeat());
+            increaseAvailableSeats(reservation.getFlight());
         }
 
         reservationRepository.deleteById(id);
@@ -157,11 +173,17 @@ public class ReservationServiceImpl implements IReservationService {
         }
 
         Reservation reservation = optionalReservation.get();
+
+        if (reservation.getStatus() != ReservationStatus.PENDING) {
+            return GenericResponse.error(Constants.ONLY_PENDING_CAN_BE_CANCELLED);
+        }
+
         reservation.setStatus(ReservationStatus.CANCELLED);
 
         if (reservation.getSeat() != null) {
             reservation.getSeat().setStatus(SeatStatus.AVAILABLE);
             seatRepository.save(reservation.getSeat());
+            increaseAvailableSeats(reservation.getFlight());
         }
 
         Reservation cancelledReservation = reservationRepository.save(reservation);
@@ -183,7 +205,8 @@ public class ReservationServiceImpl implements IReservationService {
     }
 
     private BigDecimal calculateTotalPrice(BigDecimal basePrice, ReservationCreateDto dto) {
-        BigDecimal totalPrice = basePrice;
+        PassengerType passengerType = dto.getPassengerType() != null ? dto.getPassengerType() : PassengerType.ADULT;
+        BigDecimal totalPrice = applyPassengerTypePrice(basePrice, passengerType);
 
         if (dto.getFlightClass() != null) {
             switch (dto.getFlightClass()) {
@@ -223,5 +246,33 @@ public class ReservationServiceImpl implements IReservationService {
         }
 
         return totalPrice;
+    }
+
+    private BigDecimal applyPassengerTypePrice(BigDecimal basePrice, PassengerType passengerType) {
+        return switch (passengerType) {
+            case ADULT -> basePrice;
+            case CHILD -> basePrice.multiply(BigDecimal.valueOf(0.50));
+            case STUDENT -> basePrice.multiply(BigDecimal.valueOf(0.80));
+        };
+    }
+
+    private void decreaseAvailableSeats(Flight flight) {
+        if (flight == null || flight.getAvailableSeats() == null) {
+            return;
+        }
+
+        if (flight.getAvailableSeats() > 0) {
+            flight.setAvailableSeats(flight.getAvailableSeats() - 1);
+            flightRepository.save(flight);
+        }
+    }
+
+    private void increaseAvailableSeats(Flight flight) {
+        if (flight == null || flight.getAvailableSeats() == null) {
+            return;
+        }
+
+        flight.setAvailableSeats(flight.getAvailableSeats() + 1);
+        flightRepository.save(flight);
     }
 }
