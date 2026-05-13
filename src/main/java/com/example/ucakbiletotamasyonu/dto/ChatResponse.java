@@ -1,5 +1,6 @@
 package com.example.ucakbiletotamasyonu.dto;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -11,13 +12,9 @@ import java.util.List;
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
-public class VoiceAssistantResponse {
-
-    private String conversationId;
-    private String transcript;
+@JsonIgnoreProperties(ignoreUnknown = true)
+public class ChatResponse {
     private String type;
     private String assistantText;
     private List<FlightDto> data;
-    private String audioUrl;
-    private String audioContentType;
 }

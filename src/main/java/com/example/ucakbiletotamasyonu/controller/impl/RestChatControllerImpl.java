@@ -3,6 +3,7 @@ package com.example.ucakbiletotamasyonu.controller.impl;
 import com.example.ucakbiletotamasyonu.controller.RestBaseController;
 import com.example.ucakbiletotamasyonu.controller.RootEntity;
 import com.example.ucakbiletotamasyonu.dto.ChatRequest;
+import com.example.ucakbiletotamasyonu.dto.ChatResponse;
 import com.example.ucakbiletotamasyonu.service.IChatService;
 import jakarta.validation.Valid;
 import org.slf4j.Logger;
@@ -25,9 +26,9 @@ public class RestChatControllerImpl extends RestBaseController {
     }
 
     @PostMapping
-    public RootEntity<String> chat(@Valid @RequestBody ChatRequest request) {
+    public RootEntity<ChatResponse> chat(@Valid @RequestBody ChatRequest request) {
         log.info("chat endpoint called with message length={}", request.getMessage().length());
-        String response = chatService.chat(request.getMessage());
-        return ok(response);
+        ChatResponse chatResponse = chatService.chat(request.getMessage());
+        return ok(chatResponse);
     }
 }

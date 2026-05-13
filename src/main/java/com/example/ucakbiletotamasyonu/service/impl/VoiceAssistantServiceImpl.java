@@ -1,9 +1,11 @@
 package com.example.ucakbiletotamasyonu.service.impl;
 
+import com.example.ucakbiletotamasyonu.dto.ChatResponse;
 import com.example.ucakbiletotamasyonu.dto.VoiceAssistantResponse;
 import com.example.ucakbiletotamasyonu.exception.BaseException;
 import com.example.ucakbiletotamasyonu.exception.ErrorMessage;
 import com.example.ucakbiletotamasyonu.exception.MessageType;
+import com.example.ucakbiletotamasyonu.service.IChatService;
 import com.example.ucakbiletotamasyonu.service.IVoiceAssistantService;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -11,8 +13,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.ai.audio.transcription.TranscriptionModel;
 import org.springframework.ai.audio.tts.TextToSpeechModel;
-import org.springframework.ai.chat.client.ChatClient;
-import org.springframework.ai.chat.client.advisor.MessageChatMemoryAdvisor;
 import org.springframework.ai.chat.memory.ChatMemory;
 import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Service;
@@ -21,27 +21,22 @@ import org.springframework.stereotype.Service;
 public class VoiceAssistantServiceImpl implements IVoiceAssistantService {
 
     private static final Logger log = LoggerFactory.getLogger(VoiceAssistantServiceImpl.class);
-    private static final String SYSTEM_PROMPT =
-            "You are a helpful flight booking voice assistant. Keep answers concise, natural, and easy to speak aloud.";
     private static final String AUDIO_CONTENT_TYPE = "audio/mpeg";
 
     private final TranscriptionModel transcriptionModel;
     private final TextToSpeechModel textToSpeechModel;
-    private final ChatClient chatClient;
+    private final IChatService chatService;
     private final ChatMemory chatMemory;
     private final ConcurrentHashMap<String, byte[]> audioCache = new ConcurrentHashMap<>();
 
-    public VoiceAssistantServiceImpl(ChatClient.Builder chatClientBuilder,
-                                     ChatMemory chatMemory,
+    public VoiceAssistantServiceImpl(ChatMemory chatMemory,
                                      TranscriptionModel transcriptionModel,
-                                     TextToSpeechModel textToSpeechModel) {
+                                     TextToSpeechModel textToSpeechModel,
+                                     IChatService chatService) {
         this.chatMemory = chatMemory;
         this.transcriptionModel = transcriptionModel;
         this.textToSpeechModel = textToSpeechModel;
-        this.chatClient = chatClientBuilder
-                .defaultSystem(SYSTEM_PROMPT)
-                .defaultAdvisors(MessageChatMemoryAdvisor.builder(chatMemory).build())
-                .build();
+        this.chatService = chatService;
     }
 
     @Override
@@ -57,12 +52,8 @@ public class VoiceAssistantServiceImpl implements IVoiceAssistantService {
                     normalizedConversationId,
                     transcript == null ? 0 : transcript.length());
 
-            String userMessage = transcript == null ? "" : transcript;
-            String answer = chatClient.prompt()
-                    .user(userMessage)
-                    .advisors(a -> a.param(ChatMemory.CONVERSATION_ID, normalizedConversationId))
-                    .call()
-                    .content();
+            ChatResponse chatResponse = chatService.chat(transcript == null ? "" : transcript);
+            String answer = chatResponse == null ? null : chatResponse.getAssistantText();
 
             log.info("voice assistant chat completed, conversationId={}, answerLength={}",
                     normalizedConversationId,
@@ -78,7 +69,9 @@ public class VoiceAssistantServiceImpl implements IVoiceAssistantService {
             return new VoiceAssistantResponse(
                     normalizedConversationId,
                     transcript,
+                    chatResponse == null ? null : chatResponse.getType(),
                     answer,
+                    chatResponse == null ? null : chatResponse.getData(),
                     "/api/v1/voice/audio/" + normalizedConversationId,
                     AUDIO_CONTENT_TYPE
             );

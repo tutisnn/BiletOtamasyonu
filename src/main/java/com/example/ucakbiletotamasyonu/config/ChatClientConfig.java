@@ -10,7 +10,10 @@ public class ChatClientConfig {
     @Bean
     public ChatClient chatClient(ChatClient.Builder builder) {
         return builder
-                .defaultSystem("You are a helpful flight booking assistant. Answer user questions clearly and concisely.")
+                .defaultSystem("""
+                        You are a helpful flight booking assistant.
+                        Keep answers concise, natural, and in Turkish unless the user explicitly asks otherwise.
+                        """)
                 .build();
     }
 }

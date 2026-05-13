@@ -1,6 +1,8 @@
 package com.example.ucakbiletotamasyonu.service;
 
+import com.example.ucakbiletotamasyonu.dto.ChatResponse;
+
 public interface IChatService {
 
-    String chat(String message);
+    ChatResponse chat(String message);
 }
