@@ -14,5 +14,7 @@ public interface ITicketService {
 
     GenericResponse<?> getTicketsByUserId(Integer userId);
 
+    GenericResponse<?> getMyTickets();
+
     GenericResponse<?> deleteTicketById(Integer id);
 }

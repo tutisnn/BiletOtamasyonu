@@ -24,29 +24,48 @@ public class FlightSearchTool {
 
     @Tool(description = """
             Search available flights in the flight booking API.
-            Use this tool when the user asks to travel from one city/airport to another on a specific date.
-            The departure and arrival values should be city names or airport/city names.
+            Use this tool when the user asks to travel from one city to another on a specific date.
+            The departure and arrival values should be city names.
             The departureDate must be in ISO-8601 date format: yyyy-MM-dd.
             Returns the exact JSON response from the flight search API.
             """)
-    public String searchFlights(String departure, String arrival, String departureDate) {
-        if (isBlank(departure) || isBlank(arrival) || isBlank(departureDate)) {
-            log.info("flight search tool called with missing params departure={}, arrival={}, departureDate={}", departure, arrival, departureDate);
+    public String searchFlights(String departureCity, String arrivalCity, String departureDate) {
+        return searchFlightsDetailed(departureCity, arrivalCity, departureDate, null, null);
+    }
+
+    @Tool(description = """
+            Search available flights in the flight booking API with optional airport names.
+            Use this tool when the user specifies both city and airport.
+            The departure and arrival values should be city names.
+            The optional departureAirport/arrivalAirport values should be airport names.
+            The departureDate must be in ISO-8601 date format: yyyy-MM-dd.
+            Returns the exact JSON response from the flight search API.
+            """)
+    public String searchFlightsDetailed(String departureCity, String arrivalCity, String departureDate,
+                                        String departureAirport, String arrivalAirport) {
+        if (isBlank(departureCity) || isBlank(arrivalCity) || isBlank(departureDate)) {
+            log.info("flight search tool called with missing params departureCity={}, arrivalCity={}, departureDate={}",
+                    departureCity, arrivalCity, departureDate);
             return """
                     {"message":"Uçuş araması için kalkış, varış ve tarih bilgisi gerekli.","data":[]}
                     """.trim();
         }
 
-        URI uri = UriComponentsBuilder
+        UriComponentsBuilder builder = UriComponentsBuilder
                 .fromUriString(flightApiBaseUrl)
                 .path("/api/flights/search")
-                .queryParam("departure", departure.trim())
-                .queryParam("arrival", arrival.trim())
-                .queryParam("departureDate", departureDate.trim())
-                .encode()
-                .build()
-                .toUri();
+                .queryParam("departure", departureCity.trim())
+                .queryParam("arrival", arrivalCity.trim())
+                .queryParam("departureDate", departureDate.trim());
 
+        if (!isBlank(departureAirport)) {
+            builder.queryParam("departureAirport", departureAirport.trim());
+        }
+        if (!isBlank(arrivalAirport)) {
+            builder.queryParam("arrivalAirport", arrivalAirport.trim());
+        }
+
+        URI uri = builder.encode().build().toUri();
         log.info("calling flight search api uri={}", uri);
 
         try {
@@ -79,3 +98,4 @@ public class FlightSearchTool {
                 .replace("\"", "\\\"");
     }
 }
+

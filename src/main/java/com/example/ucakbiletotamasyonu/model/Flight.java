@@ -1,5 +1,7 @@
 package com.example.ucakbiletotamasyonu.model;
 
+import com.example.ucakbiletotamasyonu.converter.AirlineConverter;
+import com.example.ucakbiletotamasyonu.enums.Airline;
 import com.example.ucakbiletotamasyonu.enums.FlightStatus;
 import jakarta.persistence.*;
 import lombok.Getter;
@@ -23,11 +25,19 @@ public class Flight {
     @Column( nullable=false, unique = true)
     private String flightNo;
 
-    @Column(nullable=false)
-    private String departure; //where it departures from.
+    @Embedded
+    @AttributeOverrides({
+            @AttributeOverride(name = "city", column = @Column(name = "departure_city", nullable = false)),
+            @AttributeOverride(name = "airport", column = @Column(name = "departure_airport", nullable = false))
+    })
+    private AirportInfo departure;
 
-    @Column(nullable=false)
-    private String arrival;
+    @Embedded
+    @AttributeOverrides({
+            @AttributeOverride(name = "city", column = @Column(name = "arrival_city", nullable = false)),
+            @AttributeOverride(name = "airport", column = @Column(name = "arrival_airport", nullable = false))
+    })
+    private AirportInfo arrival;
 
     @Column(nullable = false)
     @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
@@ -46,8 +56,9 @@ public class Flight {
     @Column( nullable = false)
     private Integer availableSeats;
 
-    @Column( nullable = false)
-    private String airline;
+    @Convert(converter = AirlineConverter.class)
+    @Column(nullable = false)
+    private Airline airline;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)

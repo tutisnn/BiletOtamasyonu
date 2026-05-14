@@ -1,5 +1,6 @@
 package com.example.ucakbiletotamasyonu.dto;
 
+import com.example.ucakbiletotamasyonu.enums.Airline;
 import com.example.ucakbiletotamasyonu.enums.FlightStatus;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -16,13 +17,12 @@ import java.time.LocalDateTime;
 public class FlightDto {
     private Integer id;
     private String flightNo;
-    private String airline;
-    private String departure;
-    private String arrival;
+    private Airline airline;
+    private AirportInfoDto departure;
+    private AirportInfoDto arrival;
     private LocalDateTime departureTime;
     private LocalDateTime arrivalTime;
     private BigDecimal price;
-    private Integer capacity;
     private Integer availableSeats;
     private FlightStatus status;
 }

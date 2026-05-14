@@ -2,6 +2,8 @@ package com.example.ucakbiletotamasyonu.service.impl;
 
 import com.example.ucakbiletotamasyonu.dto.ChatResponse;
 import com.example.ucakbiletotamasyonu.dto.FlightDto;
+import com.example.ucakbiletotamasyonu.dto.AirportInfoDto;
+import com.example.ucakbiletotamasyonu.enums.Airline;
 import com.example.ucakbiletotamasyonu.service.IChatService;
 import com.example.ucakbiletotamasyonu.tool.FlightSearchTool;
 import com.example.ucakbiletotamasyonu.enums.FlightStatus;
@@ -15,6 +17,9 @@ import org.springframework.stereotype.Service;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.text.NumberFormat;
+import java.util.Map;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -23,6 +28,22 @@ import java.util.Locale;
 public class ChatServiceImpl implements IChatService {
 
     private static final Logger log = LoggerFactory.getLogger(ChatServiceImpl.class);
+    private static final DateTimeFormatter TIME_FMT = DateTimeFormatter.ofPattern("HH:mm");
+    private static final Locale TR = Locale.forLanguageTag("tr-TR");
+
+    // Minimal normalization for Turkish city names coming from natural language.
+    // Keeps the backend flight search working even if DB stores ASCII names like "Istanbul", "Izmir".
+    private static final Map<String, String> CITY_ALIASES = Map.ofEntries(
+            Map.entry("istanbul", "Istanbul"),
+            Map.entry("i̇stanbul", "Istanbul"),
+            Map.entry("izmir", "Izmir"),
+            Map.entry("i̇zmir", "Izmir"),
+            Map.entry("ankara", "Ankara"),
+            Map.entry("antalya", "Antalya"),
+            Map.entry("amsterdam", "Amsterdam"),
+            Map.entry("londra", "Londra"),
+            Map.entry("london", "London")
+    );
 
     private final ChatClient chatClient;
     private final FlightSearchTool flightSearchTool;
@@ -72,9 +93,11 @@ public class ChatServiceImpl implements IChatService {
         log.info("parsed flights count={}", flights.size());
 
         String assistantText = buildAssistantText(flightQuery, flights);
+        log.info("flight_search_result assistantText preview={}", preview(assistantText));
         return new ChatResponse("flight_search_result", assistantText, flights);
     }
 
+   
     private String buildAssistantText(FlightQuery flightQuery, List<FlightDto> flights) {
         if (flights.isEmpty()) {
             return String.format(
@@ -86,14 +109,124 @@ public class ChatServiceImpl implements IChatService {
             );
         }
 
-        return String.format(
-                Locale.forLanguageTag("tr-TR"),
-                "%s tarihinde %s'den %s'ye %d uygun uçuş buldum. Kartlarda görebilirsin.",
-                flightQuery.departureDate(),
-                flightQuery.departure(),
-                flightQuery.arrival(),
-                flights.size()
-        );
+        Locale tr = Locale.forLanguageTag("tr-TR");
+        StringBuilder sb = new StringBuilder();
+
+        if (flights.size() == 1) {
+            sb.append(String.format(
+                    tr,
+                    "%s tarihinde %s'den %s'ye 1 uygun uçuş buldum.",
+                    flightQuery.departureDate(),
+                    flightQuery.departure(),
+                    flightQuery.arrival()
+            ));
+        } else {
+            sb.append(String.format(
+                    tr,
+                    "%s tarihinde %s'den %s'ye %d uygun uçuş buldum.",
+                    flightQuery.departureDate(),
+                    flightQuery.departure(),
+                    flightQuery.arrival(),
+                    flights.size()
+            ));
+        }
+
+        // Natural-language summary (no list/bullets). Keep it short but informative.
+        int max = Math.min(3, flights.size());
+        sb.append("\n\n");
+
+        for (int i = 0; i < max; i++) {
+            FlightDto f = flights.get(i);
+            sb.append(buildFlightSentence(tr, f));
+            if (i < max - 1) {
+                sb.append("\n");
+            }
+        }
+
+        if (flights.size() > max) {
+            sb.append(String.format(tr, "\n\nİstersen diğer %d seçeneği de kartlardan gösterebilirim.", flights.size() - max));
+        }
+
+        sb.append("\n\nİstersen en ucuzunu ya da en erken kalkışlı olanı birlikte seçelim.");
+        return sb.toString();
+    }
+
+    private String buildFlightSentence(Locale locale, FlightDto f) {
+        StringBuilder s = new StringBuilder();
+        String flightNo = nullToDash(f.getFlightNo());
+        String airline = f.getAirline() == null ? null : f.getAirline().toString();
+        String dep = formatAirportShort(f.getDeparture());
+        String arr = formatAirportShort(f.getArrival());
+        String depTime = formatTime(f.getDepartureTime());
+        String arrTime = formatTime(f.getArrivalTime());
+        String price = formatTry(f.getPrice());
+
+        if (airline != null && !airline.isBlank() && !"-".equals(airline)) {
+            s.append(flightNo).append(" numaralı ").append(airline).append(" uçuşu var. ");
+        } else {
+            s.append(flightNo).append(" numaralı uçuş var. ");
+        }
+
+        s.append(dep).append("'dan ")
+                .append(depTime)
+                .append("'de kalkıyor, ")
+                .append(arr)
+                .append("'ye ")
+                .append(arrTime)
+                .append("'de varıyor. ");
+
+        s.append("Fiyatı ").append(price).append(".");
+
+        if (f.getAvailableSeats() != null) {
+            s.append(" Şu an ").append(f.getAvailableSeats()).append(" boş koltuk görünüyor.");
+        }
+
+        return s.toString();
+    }
+
+    private String formatAirportShort(AirportInfoDto airport) {
+        if (airport == null) {
+            return "-";
+        }
+        String city = airport.getCity();
+        String name = airport.getAirport();
+        if (isBlank(city) && isBlank(name)) {
+            return "-";
+        }
+        // Prefer the airport display name if present (often includes IATA like "(AMS)"), otherwise city.
+        if (!isBlank(name) && !name.equalsIgnoreCase(city)) {
+            return name;
+        }
+        return isBlank(city) ? "-" : city;
+    }
+
+    private String formatTime(LocalDateTime dt) {
+        if (dt == null) {
+            return "--:--";
+        }
+        try {
+            return TIME_FMT.format(dt);
+        } catch (Exception ex) {
+            return "--:--";
+        }
+    }
+
+    private String formatTry(BigDecimal amount) {
+        if (amount == null) {
+            return "-";
+        }
+        try {
+            NumberFormat nf = NumberFormat.getNumberInstance(Locale.forLanguageTag("tr-TR"));
+            nf.setMinimumFractionDigits(0);
+            nf.setMaximumFractionDigits(2);
+            return nf.format(amount) + " TL";
+        } catch (Exception ex) {
+            return amount.stripTrailingZeros().toPlainString() + " TL";
+        }
+    }
+
+    private String nullToDash(String value) {
+        return isBlank(value) ? "-" : value;
     }
 
     private List<FlightDto> parseFlights(String rawResponse) {
@@ -119,13 +252,12 @@ public class ChatServiceImpl implements IChatService {
         return new FlightDto(
                 intValue(node, "id"),
                 textValue(node, "flightNo"),
-                textValue(node, "airline"),
-                textValue(node, "departure"),
-                textValue(node, "arrival"),
+                airlineValue(node, "airline"),
+                airportInfoValue(node, "departure"),
+                airportInfoValue(node, "arrival"),
                 localDateTimeValue(node, "departureTime"),
                 localDateTimeValue(node, "arrivalTime"),
                 bigDecimalValue(node, "price"),
-                intValue(node, "capacity"),
                 intValue(node, "availableSeats"),
                 flightStatusValue(node, "status")
         );
@@ -169,8 +301,8 @@ public class ChatServiceImpl implements IChatService {
                 return FlightQuery.needMoreInfo();
             }
 
-            String departure = cleanSlot(textValue(root, "departure"));
-            String arrival = cleanSlot(textValue(root, "arrival"));
+            String departure = normalizeCity(cleanSlot(textValue(root, "departure")));
+            String arrival = normalizeCity(cleanSlot(textValue(root, "arrival")));
             String departureDateText = cleanSlot(textValue(root, "departureDate"));
 
             log.info("slot extractor parsed departure={}, arrival={}, departureDate={}", departure, arrival, departureDateText);
@@ -187,10 +319,74 @@ public class ChatServiceImpl implements IChatService {
         }
     }
 
+    private String normalizeCity(String value) {
+        if (value == null) {
+            return null;
+        }
+        String trimmed = value.trim();
+        if (trimmed.isBlank()) {
+            return null;
+        }
+
+        // Normalize Turkish dotted/dotless i variations by lowering with TR locale,
+        // then map common aliases to DB-friendly spellings.
+        String key = trimmed.toLowerCase(TR).trim();
+        key = stripTurkishLocationSuffix(key);
+        String mapped = CITY_ALIASES.get(key);
+        if (mapped != null) {
+            return mapped;
+        }
+
+        // Fallback: Title-case-ish for readability; keep original characters.
+        if (trimmed.length() == 1) {
+            return trimmed.toUpperCase(TR);
+        }
+        return trimmed.substring(0, 1).toUpperCase(TR) + trimmed.substring(1);
+    }
+
+    /**
+     * Very small heuristic to handle common Turkish case suffixes when users say:
+     * "izmir'e/izmire", "izmir'den/izmirden", "istanbul'a/istanbula", etc.
+     * This is intentionally conservative: only strips a few endings and only once.
+     */
+    private String stripTurkishLocationSuffix(String key) {
+        if (key == null) {
+            return null;
+        }
+        String k = key
+                .replace("’", "'")
+                .replaceAll("[^\\p{L}' ]+", "")
+                .trim();
+
+        // remove apostrophe if present: "izmir'e" -> "izmir e"
+        k = k.replace("'", "");
+        k = k.replaceAll("\\s+", " ").trim();
+
+        // common suffixes in Turkish for locations (written attached in casual text)
+        String[] suffixes = new String[] {
+                "lerden", "lardan",
+                "lerden", "lardan",
+                "lerden", "lardan",
+                "lerden", "lardan",
+                "nden", "ndan",
+                "den", "dan", "ten", "tan",
+                "de", "da", "te", "ta",
+                "ye", "ya",
+                "e", "a"
+        };
+
+        for (String s : suffixes) {
+            if (k.length() > s.length() + 2 && k.endsWith(s)) {
+                return k.substring(0, k.length() - s.length()).trim();
+            }
+        }
+        return k;
+    }
+
     private ChatResponse clarificationResponse() {
         return new ChatResponse(
                 "text",
-                "Uçuş araması için kalkış, varış ve tarih bilgisini paylaşır mısın?",
+                "UÃ§uÅŸ aramasÄ± iÃ§in kalkÄ±ÅŸ, varÄ±ÅŸ ve tarih bilgisini paylaÅŸÄ±r mÄ±sÄ±n?",
                 List.of()
         );
     }
@@ -269,6 +465,35 @@ public class ChatServiceImpl implements IChatService {
         }
     }
 
+    private Airline airlineValue(JsonNode node, String fieldName) {
+        String value = textValue(node, fieldName);
+        if (isBlank(value)) {
+            return null;
+        }
+        try {
+            return Airline.fromValue(value);
+        } catch (Exception ex) {
+            return null;
+        }
+    }
+
+    private AirportInfoDto airportInfoValue(JsonNode node, String fieldName) {
+        JsonNode value = node.get(fieldName);
+        if (value == null || value.isNull()) {
+            return null;
+        }
+        if (value.isTextual()) {
+            // Backward compatible: some older responses may still be plain string.
+            return new AirportInfoDto(value.asText(), value.asText());
+        }
+        String city = textValue(value, "city");
+        String airport = textValue(value, "airport");
+        if (isBlank(city) || isBlank(airport)) {
+            return null;
+        }
+        return new AirportInfoDto(city, airport);
+    }
+
     private boolean isBlank(String value) {
         return value == null || value.isBlank();
     }
@@ -291,3 +516,4 @@ public class ChatServiceImpl implements IChatService {
         }
     }
 }
+

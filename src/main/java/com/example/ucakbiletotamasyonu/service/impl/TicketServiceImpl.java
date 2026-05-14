@@ -17,6 +17,8 @@ import com.example.ucakbiletotamasyonu.repository.UserRepository;
 import com.example.ucakbiletotamasyonu.service.ITicketService;
 import jakarta.transaction.Transactional;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -126,6 +128,30 @@ public class TicketServiceImpl implements ITicketService {
     }
 
     @Override
+    public GenericResponse<?> getMyTickets() {
+        User user = resolveAuthenticatedUser();
+        if (user == null) {
+            // SecurityConfig should prevent unauthenticated access, but keep a safe fallback.
+            return GenericResponse.error(Constants.EMPTY_USER);
+        }
+
+        List<Reservation> reservations = reservationRepository.findByUser(user);
+
+        List<TicketDto> ticketDtos = reservations.stream()
+                .map(ticketRepository::findByReservation)
+                .filter(Optional::isPresent)
+                .map(Optional::get)
+                .map(ticketMapper::ticketToDto)
+                .toList();
+
+        if (ticketDtos.isEmpty()) {
+            return GenericResponse.error(Constants.EMPTY_LIST);
+        }
+
+        return GenericResponse.success(ticketDtos);
+    }
+
+    @Override
     public GenericResponse<?> deleteTicketById(Integer id) {
         if (!ticketRepository.existsById(id)) {
             return GenericResponse.error(Constants.EMPTY_TICKET);
@@ -137,5 +163,14 @@ public class TicketServiceImpl implements ITicketService {
 
     private String generateTicketNumber() {
         return "TCK-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
+    }
+
+    private User resolveAuthenticatedUser() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || authentication.getName() == null || authentication.getName().isBlank()) {
+            return null;
+        }
+
+        return userRepository.findByEmail(authentication.getName()).orElse(null);
     }
 }

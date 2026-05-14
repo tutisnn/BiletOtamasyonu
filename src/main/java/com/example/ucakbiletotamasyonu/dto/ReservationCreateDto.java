@@ -1,5 +1,6 @@
 package com.example.ucakbiletotamasyonu.dto;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.example.ucakbiletotamasyonu.enums.BaggageOption;
 import com.example.ucakbiletotamasyonu.enums.EntertainmentOption;
 import com.example.ucakbiletotamasyonu.enums.FlightClass;
@@ -10,11 +11,11 @@ import lombok.Setter;
 
 @Getter
 @Setter
+@JsonIgnoreProperties(ignoreUnknown = true) // Backward-compat if older clients still send removed fields like userId
 public class ReservationCreateDto {
 
     private Integer flightId;
     private Integer seatId;
-    private Integer userId;
 
     private FlightClass flightClass;
     private PassengerType passengerType;

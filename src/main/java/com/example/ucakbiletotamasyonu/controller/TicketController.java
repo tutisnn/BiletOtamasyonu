@@ -32,6 +32,12 @@ public class TicketController {
         return ticketService.getTicketsByUserId(userId);
     }
 
+    // Logged-in user's tickets (user resolved from JWT / SecurityContext)
+    @GetMapping("/my")
+    public GenericResponse<?> getMyTickets() {
+        return ticketService.getMyTickets();
+    }
+
     @DeleteMapping("/delete/{id}")
     public GenericResponse<?> deleteTicketById(@PathVariable Integer id) {
         return ticketService.deleteTicketById(id);

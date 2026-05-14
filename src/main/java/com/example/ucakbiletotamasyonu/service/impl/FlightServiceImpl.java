@@ -1,9 +1,11 @@
 package com.example.ucakbiletotamasyonu.service.impl;
 
 import com.example.ucakbiletotamasyonu.dto.FlightDto;
+import com.example.ucakbiletotamasyonu.dto.AirportOptionDto;
 import com.example.ucakbiletotamasyonu.enums.FlightClass;
 import com.example.ucakbiletotamasyonu.enums.SeatStatus;
 import com.example.ucakbiletotamasyonu.mapper.FlightMapper;
+import com.example.ucakbiletotamasyonu.model.AirportInfo;
 import com.example.ucakbiletotamasyonu.model.Flight;
 import com.example.ucakbiletotamasyonu.model.Seat;
 import com.example.ucakbiletotamasyonu.repository.FlightRepository;
@@ -17,6 +19,8 @@ import java.util.ArrayList;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
+import java.util.LinkedHashMap;
+import java.util.Map;
 
 @Service
 @Transactional
@@ -72,8 +76,17 @@ public class FlightServiceImpl implements IFlightService {
     }
 
     @Override
-    public List<FlightDto> searchFlights(String departure, String arrival, LocalDate departureDate) {
-        List<Flight> flights = flightRepository.findByDepartureAndArrivalAndDeletedFalse(departure, arrival);
+    public List<FlightDto> searchFlights(String departureCity, String arrivalCity, LocalDate departureDate,
+                                         String departureAirport, String arrivalAirport) {
+        List<Flight> flights;
+        if (departureAirport != null && !departureAirport.isBlank()
+                && arrivalAirport != null && !arrivalAirport.isBlank()) {
+            flights = flightRepository.findByDeparture_CityAndDeparture_AirportAndArrival_CityAndArrival_AirportAndDeletedFalse(
+                    departureCity, departureAirport, arrivalCity, arrivalAirport
+            );
+        } else {
+            flights = flightRepository.findByDeparture_CityAndArrival_CityAndDeletedFalse(departureCity, arrivalCity);
+        }
 
         return flights.stream()
                 .filter(flight -> flight.getDepartureTime() != null)
@@ -98,8 +111,8 @@ public class FlightServiceImpl implements IFlightService {
 
         flight.setFlightNo(updatedFlightDto.getFlightNo());
         flight.setAirline(updatedFlightDto.getAirline());
-        flight.setDeparture(updatedFlightDto.getDeparture());
-        flight.setArrival(updatedFlightDto.getArrival());
+        flight.setDeparture(toAirportInfo(updatedFlightDto.getDeparture()));
+        flight.setArrival(toAirportInfo(updatedFlightDto.getArrival()));
         flight.setDepartureTime(updatedFlightDto.getDepartureTime());
         flight.setArrivalTime(updatedFlightDto.getArrivalTime());
         flight.setPrice(updatedFlightDto.getPrice());
@@ -107,6 +120,52 @@ public class FlightServiceImpl implements IFlightService {
 
         Flight updatedFlight = flightRepository.save(flight);
         return flightMapper.flightToDto(updatedFlight);
+    }
+
+    @Override
+    public List<AirportOptionDto> getAirportOptions() {
+        Map<String, AirportOptionDto> dedup = new LinkedHashMap<>();
+
+        for (Object[] row : flightRepository.findDistinctDepartureAirportOptions()) {
+            AirportOptionDto dto = toAirportOption(row);
+            if (dto != null) {
+                dedup.put(key(dto), dto);
+            }
+        }
+        for (Object[] row : flightRepository.findDistinctArrivalAirportOptions()) {
+            AirportOptionDto dto = toAirportOption(row);
+            if (dto != null) {
+                dedup.put(key(dto), dto);
+            }
+        }
+
+        return new ArrayList<>(dedup.values());
+    }
+
+    private AirportOptionDto toAirportOption(Object[] row) {
+        if (row == null || row.length < 2) {
+            return null;
+        }
+        String city = row[0] == null ? null : row[0].toString();
+        String airport = row[1] == null ? null : row[1].toString();
+        if (city == null || city.isBlank() || airport == null || airport.isBlank()) {
+            return null;
+        }
+        return new AirportOptionDto(city, airport);
+    }
+
+    private String key(AirportOptionDto dto) {
+        return dto.getCity().trim().toLowerCase() + "|" + dto.getAirport().trim().toLowerCase();
+    }
+
+    private AirportInfo toAirportInfo(com.example.ucakbiletotamasyonu.dto.AirportInfoDto dto) {
+        if (dto == null) {
+            return null;
+        }
+        AirportInfo info = new AirportInfo();
+        info.setCity(dto.getCity());
+        info.setAirport(dto.getAirport());
+        return info;
     }
 
     private List<Seat> generateSeatsForFlight(Flight flight) {

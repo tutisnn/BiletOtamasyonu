@@ -13,6 +13,7 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
@@ -44,37 +45,39 @@ public class JWTAuthenticationFilter extends OncePerRequestFilter {
             filterChain.doFilter(request, response);
             return;
         }
-        String token;
-        String username;
-        token=header.substring(7);
+        String token = header.substring(7);
         log.info("JWT filter bearer token detected, tokenLength={}", token.length());
 
         try {
-            username=jwtService.getUsernameByToken(token);
+            String username = jwtService.getUsernameByToken(token);
             log.info("JWT token parsed username={}", username);
             if (username!=null && SecurityContextHolder.getContext().getAuthentication() == null) {
-             UserDetails userDetails= userDetailsService.loadUserByUsername(username);
-             if(userDetails!=null && jwtService.isTokenValid(token)) {
-                 UsernamePasswordAuthenticationToken usernamePasswordAuthenticationToken=new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
-                 usernamePasswordAuthenticationToken.setDetails(userDetails);
-                 SecurityContextHolder.getContext().setAuthentication(usernamePasswordAuthenticationToken);
-                 log.info("JWT authentication set for username={}", username);
-             }
+                UserDetails userDetails = userDetailsService.loadUserByUsername(username);
+                if (userDetails != null && jwtService.isTokenValid(token)) {
+                    UsernamePasswordAuthenticationToken usernamePasswordAuthenticationToken =
+                            new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
+                    usernamePasswordAuthenticationToken.setDetails(userDetails);
+                    SecurityContextHolder.getContext().setAuthentication(usernamePasswordAuthenticationToken);
+                    log.info("JWT authentication set for username={}", username);
+                }
 
             }
-
-
-
-
-
+        }
+        catch (UsernameNotFoundException e) {
+            // If the client sends a stale token (user deleted etc.), do not fail public endpoints with 500.
+            // Leave request unauthenticated; SecurityConfig will enforce auth only where required.
+            SecurityContextHolder.clearContext();
+            log.warn("JWT filter user not found on uri={}, username={}", request.getRequestURI(), e.getMessage());
         }
         catch (JwtException e) {
+            // Invalid/expired token: continue without authentication.
+            SecurityContextHolder.clearContext();
             log.warn("JWT filter jwt exception on uri={}: {}", request.getRequestURI(), e.getMessage());
-            throw new BaseException(new ErrorMessage(MessageType.TOKEN_IS_EXPIRED, e.getMessage()));
         }
         catch (Exception e) {
+            // Never break the request pipeline here; auth is enforced by Spring Security where needed.
+            SecurityContextHolder.clearContext();
             log.warn("JWT filter general exception on uri={}: {}", request.getRequestURI(), e.getMessage());
-            throw new BaseException(new ErrorMessage(MessageType.GENERAL_EXCEPTION, e.getMessage()));
         }
         filterChain.doFilter(request, response);
 

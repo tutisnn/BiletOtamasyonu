@@ -20,7 +20,11 @@ import com.example.ucakbiletotamasyonu.repository.SeatRepository;
 import com.example.ucakbiletotamasyonu.repository.UserRepository;
 import com.example.ucakbiletotamasyonu.service.IReservationService;
 import jakarta.transaction.Transactional;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
@@ -31,6 +35,8 @@ import java.util.Optional;
 @Service
 @Transactional
 public class ReservationServiceImpl implements IReservationService {
+
+    private static final Logger log = LoggerFactory.getLogger(ReservationServiceImpl.class);
 
     @Autowired
     private ReservationRepository reservationRepository;
@@ -52,31 +58,74 @@ public class ReservationServiceImpl implements IReservationService {
 
     @Override
     public GenericResponse<?> saveReservation(ReservationCreateDto reservationCreateDto) {
+        if (reservationCreateDto == null) {
+            log.warn("saveReservation called with null dto");
+            return GenericResponse.error("Invalid reservation request");
+        }
+
+        log.info("saveReservation called flightId={}, seatId={}, flightClass={}, passengerType={}, baggage={}, wifi={}, entertainment={}",
+                reservationCreateDto.getFlightId(),
+                reservationCreateDto.getSeatId(),
+                reservationCreateDto.getFlightClass(),
+                reservationCreateDto.getPassengerType(),
+                reservationCreateDto.getBaggageOption(),
+                reservationCreateDto.getWifiOption(),
+                reservationCreateDto.getEntertainmentOption());
+
         Flight flight = flightRepository.findById(reservationCreateDto.getFlightId()).orElse(null);
         Seat seat = seatRepository.findById(reservationCreateDto.getSeatId()).orElse(null);
-        User user = userRepository.findById(reservationCreateDto.getUserId()).orElse(null);
+        User user = resolveAuthenticatedUser();
 
         if (flight == null) return GenericResponse.error(Constants.EMPTY_FLIGHT);
         if (seat == null) return GenericResponse.error(Constants.EMPTY_SEAT);
         if (user == null) return GenericResponse.error(Constants.EMPTY_USER);
 
+        log.info("saveReservation loaded flightId={}, flightNo={}, seatId={}, seatNumber={}, seatStatus={}, seatClass={}, userEmail={}",
+                flight.getId(),
+                flight.getFlightNo(),
+                seat.getId(),
+                seat.getSeatNumber(),
+                seat.getStatus(),
+                seat.getFlightClass(),
+                user.getEmail());
+
         if (seat.getFlight() == null || !seat.getFlight().getId().equals(flight.getId())) {
+            log.warn("saveReservation rejected INVALID_SEAT_FLIGHT: seatFlightId={}, requestFlightId={}",
+                    seat.getFlight() == null ? null : seat.getFlight().getId(),
+                    flight.getId());
             return GenericResponse.error(Constants.INVALID_SEAT_FLIGHT);
         }
 
         if (seat.getStatus() != SeatStatus.AVAILABLE) {
+            log.warn("saveReservation rejected SEAT_ALREADY_RESERVED: seatStatus={}", seat.getStatus());
             return GenericResponse.error(Constants.SEAT_ALREADY_RESERVED);
         }
 
-        if (flight.getDeparture().equalsIgnoreCase(flight.getArrival())) {
+        if (flight.getDeparture() != null
+                && flight.getArrival() != null
+                && flight.getDeparture().getCity() != null
+                && flight.getArrival().getCity() != null
+                && flight.getDeparture().getCity().equalsIgnoreCase(flight.getArrival().getCity())
+                && flight.getDeparture().getAirport() != null
+                && flight.getArrival().getAirport() != null
+                && flight.getDeparture().getAirport().equalsIgnoreCase(flight.getArrival().getAirport())) {
+            log.warn("saveReservation rejected INVALID_ROUTE: departureCity={}, departureAirport={}, arrivalCity={}, arrivalAirport={}",
+                    flight.getDeparture().getCity(),
+                    flight.getDeparture().getAirport(),
+                    flight.getArrival().getCity(),
+                    flight.getArrival().getAirport());
             return GenericResponse.error(Constants.INVALID_ROUTE);
         }
 
         if (reservationCreateDto.getFlightClass() == null) {
+            log.warn("saveReservation rejected INVALID_SEAT_CLASS: request flightClass is null");
             return GenericResponse.error(Constants.INVALID_SEAT_CLASS);
         }
 
         if (seat.getFlightClass() != reservationCreateDto.getFlightClass()) {
+            log.warn("saveReservation rejected INVALID_SEAT_CLASS: seatClass={}, requestClass={}",
+                    seat.getFlightClass(),
+                    reservationCreateDto.getFlightClass());
             return GenericResponse.error(Constants.INVALID_SEAT_CLASS);
         }
 
@@ -106,13 +155,23 @@ public class ReservationServiceImpl implements IReservationService {
         reservation.setBaggageOption(reservationCreateDto.getBaggageOption());
         reservation.setWifiOption(reservationCreateDto.getWifiOption());
         reservation.setEntertainmentOption(reservationCreateDto.getEntertainmentOption());
-        reservation.setTotalPrice(calculateTotalPrice(flight.getPrice(), reservationCreateDto));
+
+        BigDecimal totalPrice = calculateTotalPrice(flight.getPrice(), reservationCreateDto);
+        reservation.setTotalPrice(totalPrice);
+        log.info("saveReservation calculated totalPrice={}, basePrice={}", totalPrice, flight.getPrice());
 
         seat.setStatus(SeatStatus.RESERVED);
         seatRepository.save(seat);
         decreaseAvailableSeats(flight);
 
         Reservation savedReservation = reservationRepository.save(reservation);
+        log.info("saveReservation success reservationId={}, status={}, seatId={}, seatStatus={}, flightId={}, availableSeats={}",
+                savedReservation.getId(),
+                savedReservation.getStatus(),
+                seat.getId(),
+                seat.getStatus(),
+                flight.getId(),
+                flight.getAvailableSeats());
         return GenericResponse.success(reservationMapper.reservationToDto(savedReservation));
     }
 
@@ -274,5 +333,16 @@ public class ReservationServiceImpl implements IReservationService {
 
         flight.setAvailableSeats(flight.getAvailableSeats() + 1);
         flightRepository.save(flight);
+    }
+
+    private User resolveAuthenticatedUser() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || authentication.getName() == null || authentication.getName().isBlank()) {
+            log.warn("saveReservation called without authentication in security context");
+            return null;
+        }
+
+        String email = authentication.getName();
+        return userRepository.findByEmail(email).orElse(null);
     }
 }

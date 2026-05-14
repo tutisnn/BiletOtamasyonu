@@ -43,6 +43,9 @@ public class SecurityConfig {
     public static final String FLIGHT_SEARCH = "/api/flights/search";
     public static final String FLIGHT_SAVE = "/api/flights/save";
     public static final String FLIGHT_GET_ALL = "/api/flights/getAll";
+    public static final String RESERVATION_BASE = "/api/reservations/**";
+    public static final String TICKETS_MY = "/api/tickets/my";
+    public static final String TICKETS_MY_SLASH = "/api/tickets/my/**";
 
 
 
@@ -110,7 +113,10 @@ public class SecurityConfig {
                         .requestMatchers(PathPatternRequestMatcher.withDefaults().matcher("/oauth2/**")).permitAll()
                         .requestMatchers(PathPatternRequestMatcher.withDefaults().matcher("/login/oauth2/**")).permitAll()
                         .requestMatchers(PathPatternRequestMatcher.withDefaults().matcher("/error")).permitAll()
-                        .anyRequest().authenticated())
+                        .requestMatchers(PathPatternRequestMatcher.withDefaults().matcher(RESERVATION_BASE)).authenticated()
+                        .requestMatchers(PathPatternRequestMatcher.withDefaults().matcher(TICKETS_MY)).authenticated()
+                        .requestMatchers(PathPatternRequestMatcher.withDefaults().matcher(TICKETS_MY_SLASH)).authenticated()
+                        .anyRequest().permitAll())
                 .oauth2Login(oauth2 -> oauth2.successHandler(oAuth2LoginSuccessHandler))
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 

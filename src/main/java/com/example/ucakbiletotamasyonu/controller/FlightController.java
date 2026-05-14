@@ -1,6 +1,7 @@
 package com.example.ucakbiletotamasyonu.controller;
 
 import com.example.ucakbiletotamasyonu.ResponseMessage.GenericResponse;
+import com.example.ucakbiletotamasyonu.dto.AirportOptionDto;
 import com.example.ucakbiletotamasyonu.dto.FlightDto;
 import com.example.ucakbiletotamasyonu.service.IFlightService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -35,11 +36,18 @@ public class FlightController {
     public GenericResponse<?> searchFlights(
             @RequestParam String departure,
             @RequestParam String arrival,
+            @RequestParam(required = false) String departureAirport,
+            @RequestParam(required = false) String arrivalAirport,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate departureDate
     ) {
         return GenericResponse.success(
-                flightService.searchFlights(departure, arrival, departureDate)
+                flightService.searchFlights(departure, arrival, departureDate, departureAirport, arrivalAirport)
         );
+    }
+
+    @GetMapping("/airports")
+    public GenericResponse<?> getAirportOptions() {
+        return GenericResponse.success(flightService.getAirportOptions());
     }
 
     @DeleteMapping("/delete/{id}")
