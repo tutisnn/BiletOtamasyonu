@@ -1,22 +1,22 @@
 package com.example.ucakbiletotamasyonu.service;
 
-import com.example.ucakbiletotamasyonu.ResponseMessage.GenericResponse;
 import com.example.ucakbiletotamasyonu.dto.ReservationCreateDto;
 import com.example.ucakbiletotamasyonu.dto.ReservationDto;
+import java.util.List;
 
 public interface IReservationService {
 
-    GenericResponse<?> saveReservation(ReservationCreateDto reservationCreateDto);
+    ReservationDto saveReservation(ReservationCreateDto reservationCreateDto);
 
-    GenericResponse<?> getAllReservations();
+    List<ReservationDto> getAllReservations();
 
-    GenericResponse<?> getReservationById(Integer id);
+    ReservationDto getReservationById(Integer id);
 
-    GenericResponse<?> getReservationsByUserId(Integer userId);
+    List<ReservationDto> getReservationsByUserId(Integer userId);
 
-    GenericResponse<?> deleteReservationById(Integer id);
+    String deleteReservationById(Integer id);
 
-    GenericResponse<?> cancelReservation(Integer id);
+    ReservationDto cancelReservation(Integer id);
 
-    GenericResponse<?> updateReservation(Integer id, ReservationDto updatedReservationDto);
+    ReservationDto updateReservation(Integer id, ReservationDto updatedReservationDto);
 }

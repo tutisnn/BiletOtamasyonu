@@ -1,6 +1,5 @@
 package com.example.ucakbiletotamasyonu.model;
 
-import com.example.ucakbiletotamasyonu.converter.AirlineConverter;
 import com.example.ucakbiletotamasyonu.enums.Airline;
 import com.example.ucakbiletotamasyonu.enums.FlightStatus;
 import jakarta.persistence.*;
@@ -56,7 +55,7 @@ public class Flight {
     @Column( nullable = false)
     private Integer availableSeats;
 
-    @Convert(converter = AirlineConverter.class)
+    @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private Airline airline;
 

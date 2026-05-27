@@ -1,69 +1,78 @@
-﻿# UcakBiletOtamasyonu
+# UcakBiletOtamasyonu
 
-Swagger UI: http://localhost:8080/swagger-ui/index.html#/
+UcakBiletOtamasyonu, Spring Boot ile gelistirilmis bir ucak bileti otomasyonu projesidir.
 
-## PostgreSQL Docker Kurulumu
+Swagger UI: `http://localhost:8080/swagger-ui/index.html#/`
 
+## Highlights
+- Stripe ile odeme
+- OAuth2 (Google Login)
+- Pub/Sub (Spring Events)
+- Refresh token cookie: Login/refresh akisinda refresh token `HttpOnly` cookie olarak set edilir (XSS'e karsi daha guvenli).
+- Voice Assistant (STT + Chat + TTS): Ses yukle -> transcribe -> chat -> mp3 uretilir. Backend tarafinda konusma hafizasi tutulmaz.
+
+## Teknolojiler
+- Java 17
+- Spring Boot
+- Spring Security (JWT + OAuth2 Client)
+- Spring Data JPA
+- PostgreSQL
+- Stripe
+- Spring AI (Chat + STT + TTS)
+
+## Hizli Baslangic
+
+### 1) PostgreSQL (Docker)
 ```bash
 docker run --name my-postgres -e POSTGRES_PASSWORD=gizlisifrem -p 5432:5432 -d postgres
 ```
 
-## pgAdmin Docker Kurulumu
-
+Istersen pgAdmin:
 ```bash
 docker run --name my-pgadmin -p 5050:80 -e PGADMIN_DEFAULT_EMAIL=admin@admin.com -e PGADMIN_DEFAULT_PASSWORD=admin -d dpage/pgadmin4
 ```
 
-pg admine gir sorgu calistirma yerine
-```bash
-DROP SCHEMA ucakbiletotamasyonu CASCADE;
-
-CREATE SCHEMA ucakbiletotamasyonu;
-```
-
-
-UcakBiletOtamasyonu, Spring Boot ile geliştirilmiş bir uçak bileti otomasyonu projesidir.  
-Şu anda projede JWT tabanlı authentication, refresh token akışı, HttpOnly cookie ile token taşıma ve logout desteği bulunmaktadır.
-
-## Teknolojiler
-    "
-- Java 17
-- Spring Boot
-- Spring Security
-- Spring Data JPA
-- PostgreSQL
-- JJWT
-- Lombok
-
-## Kurulum
-
-### 1. Veritabanı
-
-PostgreSQL üzerinde bir veritabanı oluşturun ve şu şemayı ekleyin:
-
+### 2) DB schema
+Projede varsayilan schema:
 ```sql
 CREATE SCHEMA "UcakBiletOtamasyonu";
 ```
 
-### 2. Uygulama ayarları
+### 3) Ortam Degiskenleri
+`src/main/resources/application.yml` icinde `.env` import ediliyor:
+- `./.env`
 
-`src/main/resources/application.properties` içindeki ya da environment variable olarak verilen değerleri kontrol edin:
-
+Ornek `.env`:
 ```properties
 DB_URL=jdbc:postgresql://localhost:5432/postgres
 DB_USERNAME=postgres
-DB_PASSWORD=postgres
+DB_PASSWORD=gizlisifrem
+
+OPENAI_API_KEY=...
+GOOGLE_CLIENT_ID=...
+GOOGLE_CLIENT_SECRET=...
+
+MAIL_HOST=smtp.gmail.com
+MAIL_PORT=587
+MAIL_USERNAME=...
+# Gmail App Password genelde bosluksuz kullanilir (16 karakter). Bosta/space varsa kaldir.
+MAIL_PASSWORD=...
+MAIL_SMTP_AUTH=true
+MAIL_SMTP_STARTTLS_ENABLE=true
+
+STRIPE_SECRET_KEY=...
+STRIPE_SUCCESS_URL=http://localhost:8080/api/payments/success
+STRIPE_CANCEL_URL=http://localhost:8080/api/payments/cancel
+
 COOKIE_SECURE=false
 ```
 
-## Çalıştırma
-
+### 4) Calistirma
 ```bash
 ./mvnw spring-boot:run
 ```
 
-Windows için:
-
+Windows:
 ```bash
 mvnw.cmd spring-boot:run
 ```
@@ -71,19 +80,16 @@ mvnw.cmd spring-boot:run
 ## Auth Endpointleri
 
 Base path:
-
 ```text
 /api/v1/auth
 ```
 
 ### Register
-
 ```http
 POST /api/v1/auth/register
 ```
 
 Body:
-
 ```json
 {
   "email": "test@example.com",
@@ -92,38 +98,24 @@ Body:
 ```
 
 ### Login
-
 ```http
 POST /api/v1/auth/login
 ```
 
-Body:
-
-```json
-{
-  "email": "test@example.com",
-  "password": "123456"
-}
-```
-
-Başarılı olursa:
-
-- Response body içinde `accessToken` döner
-- `refreshToken` cookie olarak set edilir
+Basarili olursa:
+- Response body icinde `accessToken` doner
+- `refreshToken` HttpOnly cookie olarak set edilir
 
 ### Email Verification
+Register sonrasi kullanici `enabled=false` durumda olusur.
+`OnRegistrationCompleteEvent` publish edilir, listener `VerificationToken` olusturur ve dogrulama kodunu e-posta ile gonderir.
 
-Register sonrası kullanıcı `enabled=false` durumda oluşturulur.  
-`OnRegistrationCompleteEvent` publish edilir, listener bir `VerificationToken` oluşturur ve doğrulama kodunu SMTP ile e-posta olarak gönderir.
-
-#### Verify Email
-
+Verify:
 ```http
 POST /api/v1/auth/verify-email
 ```
 
 Body:
-
 ```json
 {
   "email": "test@example.com",
@@ -131,136 +123,97 @@ Body:
 }
 ```
 
-Doğrulama başarılı olursa kullanıcı `enabled=true` olur ve login yapabilir.
-
-#### Resend Verification Email
-
+Resend:
 ```http
 POST /api/v1/auth/resend-verification-email
 ```
 
-Body:
-
-```json
-{
-  "email": "test@example.com"
-}
-```
-
-Bu endpoint, hesabı doğrulanmamış kullanıcıya yeni bir verification code gönderir.
-
-#### Not
-
-- Verification code 24 saat geçerlidir.
-- Kod süresi dolarsa yeniden register akışı ya da tekrar verification maili üretmek gerekir.
-
-SMTP için `spring-boot-starter-mail` ve `spring.mail.*` ayarları kullanılır.  
-Gerekli değerler environment variable ile verilir:
-
-- `MAIL_HOST`
-- `MAIL_PORT`
-- `MAIL_USERNAME`
-- `MAIL_PASSWORD`
-
 ### Google Login
-
-Google giriş akışını başlatmak için doğrudan şu adresi kullan:
-
+Google giris akisini baslatmak icin:
 ```http
 GET /oauth2/authorization/google-login
 ```
 
 Callback endpoint:
-
 ```text
 /login/oauth2/code/google-login
 ```
 
-Google Cloud Console tarafında yetkili redirect URI olarak bu callback adresini tanımlaman gerekir.
-
-### Facebook Login
-
-Facebook giriş akışını başlatmak için doğrudan şu adresi kullan:
-
-```http
-GET /oauth2/authorization/facebook-login
-```
-
-Callback endpoint:
-
-```text
-/login/oauth2/code/facebook-login
-```
-
-Facebook Developer Console tarafında yetkili redirect URI olarak bu callback adresini tanımlaman gerekir.
+Google Cloud Console tarafinda yetkili redirect URI olarak bu callback adresini tanimlaman gerekir.
 
 ### Refresh Token
-
 ```http
 POST /api/v1/auth/refresh-token
 ```
-
-Body gerekmez. Cookie ile çalışır.
+Body gerekmez. Cookie ile calisir.
 
 ### Logout
-Ana Kaynak:
-https://docs.spring.io/spring-security/reference/servlet/authentication/logout.html
-
-
 ```http
 POST /api/v1/auth/logout
 ```
+Refresh token cookie'sini temizler ve DB kaydini siler.
 
-Refresh token cookie'sini temizler ve DB kaydını siler.
-Logout sırasında cookie temizleme ve `Clear-Site-Data` ClearSiteDataHeaderWriter sınıfı kullanılır
-SecurityContextLogoutHandler sınıfının kullanımı
+## Ucus Endpointleri (Ozet)
+- `GET /api/flights/search`
+- `GET /api/flights/getAll`
+- `GET /api/flights/getFlight/{id}`
+- `GET /api/flights/airports`
+- `POST /api/flights/save` (auth)
+- `PUT /api/flights/update/{id}` (auth)
+- `DELETE /api/flights/delete/{id}` (auth)
 
+## Odeme (Stripe)
+Tipik akis:
+1. Reservation olustur
+2. Checkout session olustur -> `sessionUrl` doner
+3. Frontend `sessionUrl` ile Stripe Checkout'a gider
+4. Stripe, success/cancel URL'lerine redirect eder
 
-## Auth Policy
+## Voice Assistant
+Backend akis:
+- `POST /api/v1/voice/process` (multipart/form-data)
+  - `audio` alani zorunludur
+- `GET /api/v1/voice/audio/{conversationId}` (mp3 stream)
 
-Authentication tarafındaki davranış kuralları:
+Not: Bu projede backend tarafinda "konusma hafizasi" tutulmaz. Her sesli istek bagimsizdir.
 
-- `email + password` ile kayıtlı kullanıcı tekrar register olamaz.
-- `email + password` ile kayıtlı kullanıcı Google veya Facebook ile giriş yapamaz.
-- Google ile kayıtlı kullanıcı aynı Google hesabıyla tekrar giriş yapabilir.
-- Facebook ile kayıtlı kullanıcı aynı Facebook hesabıyla tekrar giriş yapabilir.
-- Aynı email farklı sosyal provider ile eşleşirse yeni hesap açılmaz.
-- Aynı provider olmayan bir kayıt görülürse `email already registered` hatası döner.
+## Spring AI (Function Calling / Tool)
+Bu projede Spring AI ile "tool" (function calling benzeri) yaklasimi kullaniliyor:
+- `ChatClient` ile kullanici mesaji alinip niyet/slot cikartma ve cevap uretme yapiliyor.
+- Ucus arama gibi islemler icin `FlightSearchTool` adinda bir tool var.
+  - Tool metodlari `@Tool` ile isaretli: `searchFlights(...)` ve `searchFlightsDetailed(...)`
+  - Tool, backend icinde `GET /api/flights/search` endpointine istek atip JSON sonucu geri donuyor.
 
-Kısacası:
-
-- `LOCAL` hesaplar sadece local login ile çalışır.
-- `GOOGLE` hesaplar sadece Google login ile çalışır.
-- `FACEBOOK` hesaplar sadece Facebook login ile çalışır.
-- `LOCAL` hesaplar login olmadan önce email verification tamamlamalıdır.
-
+Kisaca: Chat -> (gerekirse) Tool -> API -> sonuc -> asistan cevabi akisi var.
+ 
 ## Spring Events
+Spring Boot Events arka planda kisaca su 4 adimla calisir:
+1. Kayit (Startup): Uygulama baslarken Spring, `@EventListener` yazan tum metotlari bulur ve hangi olayi dinlediklerini bir onbellege (cache) kaydeder.
+2. Firlatma (Publish): Bir olay firlatildiginda bu olay `ApplicationEventMulticaster`'a iletilir.
+3. Eslesme ve Dagitim: Multicaster, gelen olay turune bakar, dinleyicileri bulur ve sirayla tetikler.
+4. Varsayilan davranis (Senkron): Dagitim islemi varsayilan olarak senkron calisir. Beklememesi icin `@Async` kullanilabilir.
 
-Spring Boot Events arka planda kısaca şu 4 adımla çalışır:
-
-1. Kayıt (Startup): Uygulama başlarken Spring, `@EventListener` yazan tüm metotları bulur ve hangi olayı dinlediklerini bir önbelleğe (cache) kaydeder.
-2. Fırlatma (Publish): Bir olay fırlatıldığında bu olay sistemin dağıtım merkezi olan `ApplicationEventMulticaster`'a iletilir.
-3. Eşleştirme ve Dağıtım: Multicaster, gelen olayın türüne bakar, önbellekten bu olayı dinleyenleri bulur ve bir döngü içinde sırayla hepsini tetikler.
-4. Varsayılan Davranış (Senkron): Tüm bu dağıtım işlemi varsayılan olarak senkron çalışır. Yani ana kod akışı, tüm dinleyicilerin işini bitirmesini bekler. Beklememesi için `@Async` kullanılmalıdır.
-
+Bu projede ornek:
+- `AuthenticationServiceImpl` -> `OnRegistrationCompleteEvent` publish eder
+- `RegistrationListener` -> verification code uretip email gonderir
 ## Exception Mimarisi
 
-Projede hata yönetimi custom bir yapı ile ele alınır:
+Projede hata yonetimi custom bir yapi ile ele alinir:
 
-- `BaseException`: Uygulama seviyesinde fırlatılan özel exception sınıfıdır.
-- `ErrorMessage`: Hata tipini ve detay bilgisini taşır.
-- `MessageType`: Standart hata kodlarını ve mesajlarını tutar.
-- `GlobalExceptionHandler`: Controller katmanından gelen exception'ları yakalayıp tek formatta response üretir.
-- `ApiError`: Hata response'unun üst seviyedeki taşıyıcı modelidir.
+- `BaseException`: Uygulama seviyesinde firlatilan ozel exception sinifidir.
+- `ErrorMessage`: Hata tipini ve detay bilgisini tasir.
+- `MessageType`: Standart hata kodlarini ve mesajlarini tutar.
+- `GlobalExceptionHandler`: Controller katmanindan gelen exception'lari yakalayip tek formatta response uretir.
+- `ApiError`: Hata response'unun ust seviyedeki tasiyici modelidir.
 
-Akış şu şekildedir:
+Akis su sekildedir:
 
-1. Service veya config katmanında bir problem oluşursa `BaseException` fırlatılır.
+1. Service veya config katmaninda bir problem olusursa `BaseException` firlatilir.
 2. `GlobalExceptionHandler` bunu yakalar.
-3. Response, standart bir `ApiError` yapısı ile döner.
-4. Böylece frontend tarafı tek tip hata formatı ile çalışır.
+3. Response, standart bir `ApiError` yapisi ile doner.
+4. Boylece frontend tarafi tek tip hata formati ile calisir.
 
-Örnek response yaklaşımı:
+Ornek response yaklasimi:
 
 ```json
 {
@@ -273,27 +226,3 @@ Akış şu şekildedir:
   }
 }
 ```
-## Kaynaklar
-## Voice Assistant
-
-Sesli asistan backend akışı:
-
-- `POST /api/v1/voice/process`
-- `multipart/form-data` bekler
-- `audio` alanı zorunludur
-- `conversationId` opsiyoneldir
-- kullanıcı kimliği için authenticated istek beklenir
-
-### Postman örneği
-
-- Body > form-data
-- `audio` = dosya
-- `conversationId` = `demo-1` (opsiyonel)
-
-### Conversation Reset
-
-```http
-DELETE /api/v1/voice/conversation?conversationId=demo-1
-```
-
-Bu endpoint ilgili konuşma hafızasını temizler.

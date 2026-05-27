@@ -1,20 +1,21 @@
 package com.example.ucakbiletotamasyonu.service;
 
-import com.example.ucakbiletotamasyonu.ResponseMessage.GenericResponse;
+import com.example.ucakbiletotamasyonu.dto.TicketDto;
+import java.util.List;
 
 public interface ITicketService {
 
-    GenericResponse<?> createTicketFromReservation(Integer reservationId);
+    TicketDto createTicketFromReservation(Integer reservationId);
 
-    GenericResponse<?> getAllTickets();
+    List<TicketDto> getAllTickets();
 
-    GenericResponse<?> getTicketById(Integer id);
+    TicketDto getTicketById(Integer id);
 
-    GenericResponse<?> getTicketByReservationId(Integer reservationId);
+    TicketDto getTicketByReservationId(Integer reservationId);
 
-    GenericResponse<?> getTicketsByUserId(Integer userId);
+    List<TicketDto> getTicketsByUserId(Integer userId);
 
-    GenericResponse<?> getMyTickets();
+    List<TicketDto> getMyTickets();
 
-    GenericResponse<?> deleteTicketById(Integer id);
+    String deleteTicketById(Integer id);
 }

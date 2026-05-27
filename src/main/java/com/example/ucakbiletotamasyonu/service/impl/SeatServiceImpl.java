@@ -1,9 +1,12 @@
 package com.example.ucakbiletotamasyonu.service.impl;
 
 import com.example.ucakbiletotamasyonu.ResponseMessage.Constants;
-import com.example.ucakbiletotamasyonu.ResponseMessage.GenericResponse;
+import com.example.ucakbiletotamasyonu.dto.SeatDto;
 import com.example.ucakbiletotamasyonu.enums.FlightClass;
 import com.example.ucakbiletotamasyonu.enums.SeatStatus;
+import com.example.ucakbiletotamasyonu.exception.BaseException;
+import com.example.ucakbiletotamasyonu.exception.ErrorMessage;
+import com.example.ucakbiletotamasyonu.exception.MessageType;
 import com.example.ucakbiletotamasyonu.mapper.SeatMapper;
 import com.example.ucakbiletotamasyonu.model.Flight;
 import com.example.ucakbiletotamasyonu.model.Seat;
@@ -30,14 +33,14 @@ public class SeatServiceImpl implements ISeatService {
     private SeatMapper seatMapper;
 
     @Override
-    public GenericResponse<?> getSeatsByFlight(Integer flightId, SeatStatus status, FlightClass flightClass) {
+    public List<SeatDto> getSeatsByFlight(Integer flightId, SeatStatus status, FlightClass flightClass) {
         if (flightId == null) {
-            return GenericResponse.error(Constants.EMPTY_FLIGHT);
+            throw new BaseException(new ErrorMessage(MessageType.NO_RECORD_EXIST, Constants.EMPTY_FLIGHT));
         }
 
         Flight flight = flightRepository.findByIdAndDeletedFalse(flightId).orElse(null);
         if (flight == null) {
-            return GenericResponse.error(Constants.EMPTY_FLIGHT);
+            throw new BaseException(new ErrorMessage(MessageType.NO_RECORD_EXIST, Constants.EMPTY_FLIGHT));
         }
 
         List<Seat> seats;
@@ -54,7 +57,6 @@ public class SeatServiceImpl implements ISeatService {
             seats = seatRepository.findByFlight(flight);
         }
 
-        return GenericResponse.success(seats.stream().map(seatMapper::seatToDto).toList());
+        return seats.stream().map(seatMapper::seatToDto).toList();
     }
 }
-

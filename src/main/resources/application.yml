@@ -3,6 +3,9 @@ spring:
     import: "optional:file:./.env[.properties]"
   application:
     name: UcakBiletOtamasyonu
+  devtools:
+    restart:
+      enabled: false
   security:
     oauth2:
       client:

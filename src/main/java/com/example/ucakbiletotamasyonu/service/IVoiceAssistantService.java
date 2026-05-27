@@ -5,9 +5,7 @@ import org.springframework.core.io.Resource;
 
 public interface IVoiceAssistantService {
 
-    VoiceAssistantResponse processAudio(Resource audioResource, String conversationId);
+    VoiceAssistantResponse processAudio(Resource audioResource);
 
     byte[] getAudio(String conversationId);
-
-    void clearConversation(String conversationId);
 }

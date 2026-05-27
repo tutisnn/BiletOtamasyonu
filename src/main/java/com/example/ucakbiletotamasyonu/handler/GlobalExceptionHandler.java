@@ -1,11 +1,9 @@
 package com.example.ucakbiletotamasyonu.handler;
 
+import com.example.ucakbiletotamasyonu.controller.RootEntity;
 import com.example.ucakbiletotamasyonu.exception.BaseException;
 import com.example.ucakbiletotamasyonu.exception.MessageType;
-import java.net.Inet4Address;
-import java.net.UnknownHostException;
 import java.util.ArrayList;
-import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -22,15 +20,19 @@ import org.springframework.web.context.request.WebRequest;
 public class GlobalExceptionHandler {
 
     @ExceptionHandler(value = BaseException.class)
-    public ResponseEntity<ApiError<?>> handleBaseException(BaseException ex, WebRequest request) {
-        if (ex.getErrorMessage().getMessageType() == MessageType.VOICE_AUDIO_NOT_FOUND) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(createApiError(ex.getMessage(), request));
-        }
-        return ResponseEntity.badRequest().body(createApiError(ex.getMessage(), request));
+    public ResponseEntity<RootEntity<?>> handleBaseException(BaseException ex, WebRequest request) {
+        HttpStatus status = switch (ex.getErrorMessage().getMessageType()) {
+            case VOICE_AUDIO_NOT_FOUND -> HttpStatus.NOT_FOUND;
+            case NO_RECORD_EXIST, EMAIL_NOT_FOUND, REFRESH_TOKEN_NOT_FOUND -> HttpStatus.NOT_FOUND;
+            case TOKEN_IS_EXPIRED, REFRESH_TOKEN_IS_EXPIRED -> HttpStatus.UNAUTHORIZED;
+            default -> HttpStatus.BAD_REQUEST;
+        };
+
+        return ResponseEntity.status(status).body(RootEntity.error(status.value(), ex.getMessage()));
     }
 
     @ExceptionHandler(value = MethodArgumentNotValidException.class)
-    public ResponseEntity<ApiError<Map<String, List<String>>>> handleMethodArgumentNotValidException(
+    public ResponseEntity<RootEntity<?>> handleMethodArgumentNotValidException(
             MethodArgumentNotValidException ex, WebRequest request) {
         Map<String, List<String>> errors = new HashMap<>();
 
@@ -44,34 +46,12 @@ public class GlobalExceptionHandler {
             }
         }
 
-        return ResponseEntity.badRequest().body(createApiError(errors, request));
+        // Keep RootEntity schema; include field errors in the message for now.
+        return ResponseEntity.badRequest().body(RootEntity.error(HttpStatus.BAD_REQUEST.value(), errors.toString()));
     }
 
     private List<String> addValue(List<String> list, String newValue) {
         list.add(newValue);
         return list;
-    }
-
-    private String getHostName() {
-        try {
-            return Inet4Address.getLocalHost().getHostName();
-        } catch (UnknownHostException e) {
-            return "";
-        }
-    }
-
-    public <E> ApiError<E> createApiError(E message, WebRequest request) {
-        ApiError<E> apiError = new ApiError<>();
-        apiError.setStatus(HttpStatus.INTERNAL_SERVER_ERROR.value());
-
-        Exception<E> exception = new Exception<>();
-        exception.setPath(request.getDescription(false).substring(4));
-        exception.setCreateTime(new Date());
-        exception.setMessage(message);
-        exception.setHostName(getHostName());
-
-        apiError.setException(exception);
-
-        return apiError;
     }
 }

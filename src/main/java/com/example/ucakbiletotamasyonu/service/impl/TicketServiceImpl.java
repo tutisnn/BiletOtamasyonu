@@ -1,10 +1,12 @@
 package com.example.ucakbiletotamasyonu.service.impl;
 
 import com.example.ucakbiletotamasyonu.ResponseMessage.Constants;
-import com.example.ucakbiletotamasyonu.ResponseMessage.GenericResponse;
 import com.example.ucakbiletotamasyonu.dto.TicketDto;
 import com.example.ucakbiletotamasyonu.enums.PaymentStatus;
 import com.example.ucakbiletotamasyonu.enums.ReservationStatus;
+import com.example.ucakbiletotamasyonu.exception.BaseException;
+import com.example.ucakbiletotamasyonu.exception.ErrorMessage;
+import com.example.ucakbiletotamasyonu.exception.MessageType;
 import com.example.ucakbiletotamasyonu.mapper.TicketMapper;
 import com.example.ucakbiletotamasyonu.model.Payment;
 import com.example.ucakbiletotamasyonu.model.Reservation;
@@ -45,28 +47,28 @@ public class TicketServiceImpl implements ITicketService {
     private TicketMapper ticketMapper;
 
     @Override
-    public GenericResponse<?> createTicketFromReservation(Integer reservationId) {
+    public TicketDto createTicketFromReservation(Integer reservationId) {
         Reservation reservation = reservationRepository.findById(reservationId).orElse(null);
         if (reservation == null) {
-            return GenericResponse.error(Constants.EMPTY_RESERVATION);
+            throw new BaseException(new ErrorMessage(MessageType.NO_RECORD_EXIST, Constants.EMPTY_RESERVATION));
         }
 
         if (reservation.getStatus() != ReservationStatus.CONFIRMED) {
-            return GenericResponse.error("Ticket can only be created for confirmed reservation");
+            throw new BaseException(new ErrorMessage(MessageType.GENERAL_EXCEPTION, "Ticket can only be created for confirmed reservation"));
         }
 
         Payment payment = paymentRepository.findByReservation(reservation).orElse(null);
         if (payment == null) {
-            return GenericResponse.error(Constants.EMPTY_PAYMENT);
+            throw new BaseException(new ErrorMessage(MessageType.NO_RECORD_EXIST, Constants.EMPTY_PAYMENT));
         }
 
         if (payment.getStatus() != PaymentStatus.SUCCESS) {
-            return GenericResponse.error("Ticket can only be created after successful payment");
+            throw new BaseException(new ErrorMessage(MessageType.GENERAL_EXCEPTION, "Ticket can only be created after successful payment"));
         }
 
         Optional<Ticket> existingTicket = ticketRepository.findByReservation(reservation);
         if (existingTicket.isPresent()) {
-            return GenericResponse.success(ticketMapper.ticketToDto(existingTicket.get()));
+            return ticketMapper.ticketToDto(existingTicket.get());
         }
 
         Ticket ticket = new Ticket();
@@ -74,41 +76,39 @@ public class TicketServiceImpl implements ITicketService {
         ticket.setTicketNumber(generateTicketNumber());
 
         Ticket savedTicket = ticketRepository.save(ticket);
-        return GenericResponse.success(ticketMapper.ticketToDto(savedTicket));
+        return ticketMapper.ticketToDto(savedTicket);
     }
 
     @Override
-    public GenericResponse<?> getAllTickets() {
+    public List<TicketDto> getAllTickets() {
         List<Ticket> tickets = ticketRepository.findAll();
-        return GenericResponse.success(
-                tickets.stream().map(ticketMapper::ticketToDto).toList()
-        );
+        return tickets.stream().map(ticketMapper::ticketToDto).toList();
     }
 
     @Override
-    public GenericResponse<?> getTicketById(Integer id) {
+    public TicketDto getTicketById(Integer id) {
         return ticketRepository.findById(id)
-                .map(ticket -> GenericResponse.success(ticketMapper.ticketToDto(ticket)))
-                .orElseGet(() -> GenericResponse.error(Constants.EMPTY_TICKET));
+                .map(ticketMapper::ticketToDto)
+                .orElseThrow(() -> new BaseException(new ErrorMessage(MessageType.NO_RECORD_EXIST, Constants.EMPTY_TICKET)));
     }
 
     @Override
-    public GenericResponse<?> getTicketByReservationId(Integer reservationId) {
+    public TicketDto getTicketByReservationId(Integer reservationId) {
         Reservation reservation = reservationRepository.findById(reservationId).orElse(null);
         if (reservation == null) {
-            return GenericResponse.error(Constants.EMPTY_RESERVATION);
+            throw new BaseException(new ErrorMessage(MessageType.NO_RECORD_EXIST, Constants.EMPTY_RESERVATION));
         }
 
         return ticketRepository.findByReservation(reservation)
-                .map(ticket -> GenericResponse.success(ticketMapper.ticketToDto(ticket)))
-                .orElseGet(() -> GenericResponse.error(Constants.EMPTY_TICKET));
+                .map(ticketMapper::ticketToDto)
+                .orElseThrow(() -> new BaseException(new ErrorMessage(MessageType.NO_RECORD_EXIST, Constants.EMPTY_TICKET)));
     }
 
     @Override
-    public GenericResponse<?> getTicketsByUserId(Integer userId) {
+    public List<TicketDto> getTicketsByUserId(Integer userId) {
         User user = userRepository.findById(userId).orElse(null);
         if (user == null) {
-            return GenericResponse.error(Constants.EMPTY_USER);
+            throw new BaseException(new ErrorMessage(MessageType.NO_RECORD_EXIST, Constants.EMPTY_USER));
         }
 
         List<Reservation> reservations = reservationRepository.findByUser(user);
@@ -119,21 +119,12 @@ public class TicketServiceImpl implements ITicketService {
                 .map(Optional::get)
                 .map(ticketMapper::ticketToDto)
                 .toList();
-
-        if (ticketDtos.isEmpty()) {
-            return GenericResponse.error(Constants.EMPTY_LIST);
-        }
-
-        return GenericResponse.success(ticketDtos);
+        return ticketDtos;
     }
 
     @Override
-    public GenericResponse<?> getMyTickets() {
+    public List<TicketDto> getMyTickets() {
         User user = resolveAuthenticatedUser();
-        if (user == null) {
-            // SecurityConfig should prevent unauthenticated access, but keep a safe fallback.
-            return GenericResponse.error(Constants.EMPTY_USER);
-        }
 
         List<Reservation> reservations = reservationRepository.findByUser(user);
 
@@ -143,22 +134,17 @@ public class TicketServiceImpl implements ITicketService {
                 .map(Optional::get)
                 .map(ticketMapper::ticketToDto)
                 .toList();
-
-        if (ticketDtos.isEmpty()) {
-            return GenericResponse.error(Constants.EMPTY_LIST);
-        }
-
-        return GenericResponse.success(ticketDtos);
+        return ticketDtos;
     }
 
     @Override
-    public GenericResponse<?> deleteTicketById(Integer id) {
+    public String deleteTicketById(Integer id) {
         if (!ticketRepository.existsById(id)) {
-            return GenericResponse.error(Constants.EMPTY_TICKET);
+            throw new BaseException(new ErrorMessage(MessageType.NO_RECORD_EXIST, Constants.EMPTY_TICKET));
         }
 
         ticketRepository.deleteById(id);
-        return GenericResponse.success("Ticket deleted successfully");
+        return "Ticket deleted successfully";
     }
 
     private String generateTicketNumber() {
@@ -168,9 +154,10 @@ public class TicketServiceImpl implements ITicketService {
     private User resolveAuthenticatedUser() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication == null || authentication.getName() == null || authentication.getName().isBlank()) {
-            return null;
+            throw new BaseException(new ErrorMessage(MessageType.EMAIL_NOT_FOUND, Constants.EMPTY_USER));
         }
 
-        return userRepository.findByEmail(authentication.getName()).orElse(null);
+        return userRepository.findByEmail(authentication.getName())
+                .orElseThrow(() -> new BaseException(new ErrorMessage(MessageType.EMAIL_NOT_FOUND, authentication.getName())));
     }
 }

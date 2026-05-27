@@ -4,6 +4,9 @@ import com.example.ucakbiletotamasyonu.dto.FlightDto;
 import com.example.ucakbiletotamasyonu.dto.AirportOptionDto;
 import com.example.ucakbiletotamasyonu.enums.FlightClass;
 import com.example.ucakbiletotamasyonu.enums.SeatStatus;
+import com.example.ucakbiletotamasyonu.exception.BaseException;
+import com.example.ucakbiletotamasyonu.exception.ErrorMessage;
+import com.example.ucakbiletotamasyonu.exception.MessageType;
 import com.example.ucakbiletotamasyonu.mapper.FlightMapper;
 import com.example.ucakbiletotamasyonu.model.AirportInfo;
 import com.example.ucakbiletotamasyonu.model.Flight;
@@ -38,12 +41,13 @@ public class FlightServiceImpl implements IFlightService {
     @Override
     public FlightDto saveFlight(FlightDto flightDto) {
         if (flightDto == null) {
-            throw new RuntimeException("Flight data cannot be null");
+            throw new BaseException(new ErrorMessage(MessageType.GENERAL_EXCEPTION, "Flight data cannot be null"));
         }
 
         Optional<Flight> existingFlight = flightRepository.findByFlightNoAndDeletedFalse(flightDto.getFlightNo());
         if (existingFlight.isPresent()) {
-            throw new RuntimeException("Flight already exists with flight number: " + flightDto.getFlightNo());
+            throw new BaseException(new ErrorMessage(MessageType.GENERAL_EXCEPTION,
+                    "Flight already exists with flight number: " + flightDto.getFlightNo()));
         }
 
         Flight flight = flightMapper.dtoToFlight(flightDto);
@@ -70,7 +74,7 @@ public class FlightServiceImpl implements IFlightService {
     @Override
     public FlightDto getFlightById(Integer id) {
         Flight flight = flightRepository.findByIdAndDeletedFalse(id)
-                .orElseThrow(() -> new RuntimeException("Flight not found with id: " + id));
+                .orElseThrow(() -> new BaseException(new ErrorMessage(MessageType.NO_RECORD_EXIST, "Flight not found with id: " + id)));
 
         return flightMapper.flightToDto(flight);
     }
@@ -98,7 +102,7 @@ public class FlightServiceImpl implements IFlightService {
     @Override
     public void deleteFlightById(Integer id) {
         Flight flight = flightRepository.findByIdAndDeletedFalse(id)
-                .orElseThrow(() -> new RuntimeException("Flight not found with id: " + id));
+                .orElseThrow(() -> new BaseException(new ErrorMessage(MessageType.NO_RECORD_EXIST, "Flight not found with id: " + id)));
         flight.setDeleted(true);
         flight.setStatus(com.example.ucakbiletotamasyonu.enums.FlightStatus.CANCELLED);
         flightRepository.save(flight);
@@ -107,7 +111,7 @@ public class FlightServiceImpl implements IFlightService {
     @Override
     public FlightDto updateFlight(Integer id, FlightDto updatedFlightDto) {
         Flight flight = flightRepository.findByIdAndDeletedFalse(id)
-                .orElseThrow(() -> new RuntimeException("Flight not found with id: " + id));
+                .orElseThrow(() -> new BaseException(new ErrorMessage(MessageType.NO_RECORD_EXIST, "Flight not found with id: " + id)));
 
         flight.setFlightNo(updatedFlightDto.getFlightNo());
         flight.setAirline(updatedFlightDto.getAirline());

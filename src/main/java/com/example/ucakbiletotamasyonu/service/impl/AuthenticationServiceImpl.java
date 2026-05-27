@@ -104,7 +104,9 @@ public class AuthenticationServiceImpl implements IAuthenticationService {
         User user = new User();
         user.setCreateTime(new Date());
         user.setEmail(email);
-        user.setPassword(null);
+        // Social-login users don't authenticate with a local password, but the DB schema requires it.
+        // Store a strong random hash to satisfy the NOT NULL constraint.
+        user.setPassword(passwordEncoder.encode(UUID.randomUUID().toString()));
         user.setProvider(provider);
         user.setEnabled(true);
         return user;

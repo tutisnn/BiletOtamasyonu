@@ -1,6 +1,5 @@
 package com.example.ucakbiletotamasyonu.controller;
 
-import com.example.ucakbiletotamasyonu.ResponseMessage.GenericResponse;
 import com.example.ucakbiletotamasyonu.service.IPaymentService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -12,28 +11,28 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/payments")
-public class PaymentController {
+public class PaymentController extends RestBaseController {
 
     @Autowired
     private IPaymentService paymentService;
 
     @PostMapping("/checkout/{reservationId}")
-    public GenericResponse<?> createCheckoutSession(@PathVariable Integer reservationId) {
-        return paymentService.createCheckoutSession(reservationId);
+    public RootEntity<?> createCheckoutSession(@PathVariable Integer reservationId) {
+        return ok(paymentService.createCheckoutSession(reservationId));
     }
 
     @GetMapping("/success")
-    public GenericResponse<?> confirmPayment(@RequestParam("session_id") String sessionId) {
-        return paymentService.confirmPayment(sessionId);
+    public RootEntity<?> confirmPayment(@RequestParam("session_id") String sessionId) {
+        return ok(paymentService.confirmPayment(sessionId));
     }
 
     @GetMapping("/cancel")
-    public GenericResponse<?> cancelPayment(@RequestParam("reservationId") Integer reservationId) {
-        return paymentService.cancelPayment(reservationId);
+    public RootEntity<?> cancelPayment(@RequestParam("reservationId") Integer reservationId) {
+        return ok(paymentService.cancelPayment(reservationId));
     }
 
     @GetMapping("/reservation/{reservationId}")
-    public GenericResponse<?> getPaymentByReservationId(@PathVariable Integer reservationId) {
-        return paymentService.getPaymentByReservationId(reservationId);
+    public RootEntity<?> getPaymentByReservationId(@PathVariable Integer reservationId) {
+        return ok(paymentService.getPaymentByReservationId(reservationId));
     }
 }

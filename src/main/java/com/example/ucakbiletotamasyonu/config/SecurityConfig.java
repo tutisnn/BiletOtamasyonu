@@ -18,6 +18,7 @@ import org.springframework.security.web.servlet.util.matcher.PathPatternRequestM
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+import org.springframework.http.HttpMethod;
 
 import java.util.Arrays;
 import java.util.List;
@@ -40,12 +41,8 @@ public class SecurityConfig {
     public static final String VOICE_BASE = "/api/v1/voice";
     public static final String CHAT_BASE = "/api/v1/chat";
     public static final String PAYMENT_BASE = "/api/payments";
-    public static final String FLIGHT_SEARCH = "/api/flights/search";
-    public static final String FLIGHT_SAVE = "/api/flights/save";
-    public static final String FLIGHT_GET_ALL = "/api/flights/getAll";
     public static final String RESERVATION_BASE = "/api/reservations/**";
-    public static final String TICKETS_MY = "/api/tickets/my";
-    public static final String TICKETS_MY_SLASH = "/api/tickets/my/**";
+    public static final String TICKETS_BASE = "/api/tickets/**";
 
 
 
@@ -91,10 +88,10 @@ public class SecurityConfig {
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED))
                 .authenticationProvider(authenticationProvider)
                 .authorizeHttpRequests(auth -> auth
-                    .requestMatchers(PathPatternRequestMatcher.withDefaults().matcher(SWAGGER_UI)).permitAll()
-                    .requestMatchers(PathPatternRequestMatcher.withDefaults().matcher(SWAGGER_UI_HTML)).permitAll()
-                    .requestMatchers(PathPatternRequestMatcher.withDefaults().matcher(API_DOCS)).permitAll()
-                        .requestMatchers(org.springframework.http.HttpMethod.OPTIONS, "/**").permitAll()
+                        .requestMatchers(PathPatternRequestMatcher.withDefaults().matcher(SWAGGER_UI)).permitAll()
+                        .requestMatchers(PathPatternRequestMatcher.withDefaults().matcher(SWAGGER_UI_HTML)).permitAll()
+                        .requestMatchers(PathPatternRequestMatcher.withDefaults().matcher(API_DOCS)).permitAll()
+                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers(PathPatternRequestMatcher.withDefaults().matcher(REGISTER)).permitAll()
                         .requestMatchers(PathPatternRequestMatcher.withDefaults().matcher(VERIFY_EMAIL)).permitAll()
                         .requestMatchers(PathPatternRequestMatcher.withDefaults().matcher(RESEND_VERIFICATION_EMAIL)).permitAll()
@@ -103,20 +100,28 @@ public class SecurityConfig {
                         .requestMatchers(PathPatternRequestMatcher.withDefaults().matcher(LOGIN)).permitAll()
                         .requestMatchers(PathPatternRequestMatcher.withDefaults().matcher(REFRESH_TOKEN)).permitAll()
                         .requestMatchers(PathPatternRequestMatcher.withDefaults().matcher(LOGOUT)).permitAll()
-                        .requestMatchers(PathPatternRequestMatcher.withDefaults().matcher(CHAT_BASE + "/**")).permitAll()
-                        .requestMatchers(PathPatternRequestMatcher.withDefaults().matcher(VOICE_BASE + "/**")).permitAll()
-                        .requestMatchers(PathPatternRequestMatcher.withDefaults().matcher(FLIGHT_SEARCH)).permitAll()
-                        .requestMatchers(PathPatternRequestMatcher.withDefaults().matcher(FLIGHT_SAVE)).permitAll()
-                        .requestMatchers(PathPatternRequestMatcher.withDefaults().matcher(FLIGHT_GET_ALL)).permitAll()
+                        // Public read-only flight endpoints (safe for unauthenticated users)
+                        .requestMatchers(HttpMethod.GET, "/api/flights/search").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/flights/getAll").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/flights/getFlight/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/flights/airports").permitAll()
+                        // Stripe redirects can be hit without auth (user is returning from Checkout)
                         .requestMatchers(PathPatternRequestMatcher.withDefaults().matcher(PAYMENT_BASE + "/success")).permitAll()
                         .requestMatchers(PathPatternRequestMatcher.withDefaults().matcher(PAYMENT_BASE + "/cancel")).permitAll()
                         .requestMatchers(PathPatternRequestMatcher.withDefaults().matcher("/oauth2/**")).permitAll()
                         .requestMatchers(PathPatternRequestMatcher.withDefaults().matcher("/login/oauth2/**")).permitAll()
                         .requestMatchers(PathPatternRequestMatcher.withDefaults().matcher("/error")).permitAll()
+                        // Protected business endpoints
+                        .requestMatchers(PathPatternRequestMatcher.withDefaults().matcher(CHAT_BASE + "/**")).authenticated()
+                        .requestMatchers(PathPatternRequestMatcher.withDefaults().matcher(VOICE_BASE + "/**")).authenticated()
                         .requestMatchers(PathPatternRequestMatcher.withDefaults().matcher(RESERVATION_BASE)).authenticated()
-                        .requestMatchers(PathPatternRequestMatcher.withDefaults().matcher(TICKETS_MY)).authenticated()
-                        .requestMatchers(PathPatternRequestMatcher.withDefaults().matcher(TICKETS_MY_SLASH)).authenticated()
-                        .anyRequest().permitAll())
+                        .requestMatchers(PathPatternRequestMatcher.withDefaults().matcher(TICKETS_BASE)).authenticated()
+                        .requestMatchers(PathPatternRequestMatcher.withDefaults().matcher(PAYMENT_BASE + "/**")).authenticated()
+                        .requestMatchers(HttpMethod.POST, "/api/flights/save").authenticated()
+                        .requestMatchers(HttpMethod.PUT, "/api/flights/update/**").authenticated()
+                        .requestMatchers(HttpMethod.DELETE, "/api/flights/delete/**").authenticated()
+                        // Default deny: everything else requires auth
+                        .anyRequest().authenticated())
                 .oauth2Login(oauth2 -> oauth2.successHandler(oAuth2LoginSuccessHandler))
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 

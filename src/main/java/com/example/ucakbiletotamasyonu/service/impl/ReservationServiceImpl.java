@@ -1,12 +1,17 @@
 package com.example.ucakbiletotamasyonu.service.impl;
 
 import com.example.ucakbiletotamasyonu.ResponseMessage.Constants;
-import com.example.ucakbiletotamasyonu.ResponseMessage.GenericResponse;
 import com.example.ucakbiletotamasyonu.dto.ReservationCreateDto;
 import com.example.ucakbiletotamasyonu.dto.ReservationDto;
+import com.example.ucakbiletotamasyonu.enums.BaggageOption;
+import com.example.ucakbiletotamasyonu.enums.EntertainmentOption;
 import com.example.ucakbiletotamasyonu.enums.PassengerType;
 import com.example.ucakbiletotamasyonu.enums.ReservationStatus;
 import com.example.ucakbiletotamasyonu.enums.SeatStatus;
+import com.example.ucakbiletotamasyonu.enums.WifiOption;
+import com.example.ucakbiletotamasyonu.exception.BaseException;
+import com.example.ucakbiletotamasyonu.exception.ErrorMessage;
+import com.example.ucakbiletotamasyonu.exception.MessageType;
 import com.example.ucakbiletotamasyonu.mapper.ReservationMapper;
 import com.example.ucakbiletotamasyonu.model.Flight;
 import com.example.ucakbiletotamasyonu.model.Passenger;
@@ -57,10 +62,17 @@ public class ReservationServiceImpl implements IReservationService {
     private ReservationMapper reservationMapper;
 
     @Override
-    public GenericResponse<?> saveReservation(ReservationCreateDto reservationCreateDto) {
+    public ReservationDto saveReservation(ReservationCreateDto reservationCreateDto) {
         if (reservationCreateDto == null) {
             log.warn("saveReservation called with null dto");
-            return GenericResponse.error("Invalid reservation request");
+            throw new BaseException(new ErrorMessage(MessageType.GENERAL_EXCEPTION, "Invalid reservation request"));
+        }
+
+        // Extra safety: DB columns are nullable=false for passenger core fields.
+        if (isBlank(reservationCreateDto.getFirstName())
+                || isBlank(reservationCreateDto.getLastName())
+                || isBlank(reservationCreateDto.getIdentityNumber())) {
+            throw new BaseException(new ErrorMessage(MessageType.GENERAL_EXCEPTION, "Passenger firstName/lastName/identityNumber is required"));
         }
 
         log.info("saveReservation called flightId={}, seatId={}, flightClass={}, passengerType={}, baggage={}, wifi={}, entertainment={}",
@@ -76,9 +88,9 @@ public class ReservationServiceImpl implements IReservationService {
         Seat seat = seatRepository.findById(reservationCreateDto.getSeatId()).orElse(null);
         User user = resolveAuthenticatedUser();
 
-        if (flight == null) return GenericResponse.error(Constants.EMPTY_FLIGHT);
-        if (seat == null) return GenericResponse.error(Constants.EMPTY_SEAT);
-        if (user == null) return GenericResponse.error(Constants.EMPTY_USER);
+        if (flight == null) throw new BaseException(new ErrorMessage(MessageType.NO_RECORD_EXIST, Constants.EMPTY_FLIGHT));
+        if (seat == null) throw new BaseException(new ErrorMessage(MessageType.NO_RECORD_EXIST, Constants.EMPTY_SEAT));
+        if (user == null) throw new BaseException(new ErrorMessage(MessageType.EMAIL_NOT_FOUND, Constants.EMPTY_USER));
 
         log.info("saveReservation loaded flightId={}, flightNo={}, seatId={}, seatNumber={}, seatStatus={}, seatClass={}, userEmail={}",
                 flight.getId(),
@@ -93,12 +105,12 @@ public class ReservationServiceImpl implements IReservationService {
             log.warn("saveReservation rejected INVALID_SEAT_FLIGHT: seatFlightId={}, requestFlightId={}",
                     seat.getFlight() == null ? null : seat.getFlight().getId(),
                     flight.getId());
-            return GenericResponse.error(Constants.INVALID_SEAT_FLIGHT);
+            throw new BaseException(new ErrorMessage(MessageType.GENERAL_EXCEPTION, Constants.INVALID_SEAT_FLIGHT));
         }
 
         if (seat.getStatus() != SeatStatus.AVAILABLE) {
             log.warn("saveReservation rejected SEAT_ALREADY_RESERVED: seatStatus={}", seat.getStatus());
-            return GenericResponse.error(Constants.SEAT_ALREADY_RESERVED);
+            throw new BaseException(new ErrorMessage(MessageType.GENERAL_EXCEPTION, Constants.SEAT_ALREADY_RESERVED));
         }
 
         if (flight.getDeparture() != null
@@ -114,19 +126,19 @@ public class ReservationServiceImpl implements IReservationService {
                     flight.getDeparture().getAirport(),
                     flight.getArrival().getCity(),
                     flight.getArrival().getAirport());
-            return GenericResponse.error(Constants.INVALID_ROUTE);
+            throw new BaseException(new ErrorMessage(MessageType.GENERAL_EXCEPTION, Constants.INVALID_ROUTE));
         }
 
         if (reservationCreateDto.getFlightClass() == null) {
             log.warn("saveReservation rejected INVALID_SEAT_CLASS: request flightClass is null");
-            return GenericResponse.error(Constants.INVALID_SEAT_CLASS);
+            throw new BaseException(new ErrorMessage(MessageType.GENERAL_EXCEPTION, Constants.INVALID_SEAT_CLASS));
         }
 
         if (seat.getFlightClass() != reservationCreateDto.getFlightClass()) {
             log.warn("saveReservation rejected INVALID_SEAT_CLASS: seatClass={}, requestClass={}",
                     seat.getFlightClass(),
                     reservationCreateDto.getFlightClass());
-            return GenericResponse.error(Constants.INVALID_SEAT_CLASS);
+            throw new BaseException(new ErrorMessage(MessageType.GENERAL_EXCEPTION, Constants.INVALID_SEAT_CLASS));
         }
 
         Passenger passenger = new Passenger();
@@ -152,9 +164,16 @@ public class ReservationServiceImpl implements IReservationService {
                         ? reservationCreateDto.getPassengerType()
                         : PassengerType.ADULT
         );
-        reservation.setBaggageOption(reservationCreateDto.getBaggageOption());
-        reservation.setWifiOption(reservationCreateDto.getWifiOption());
-        reservation.setEntertainmentOption(reservationCreateDto.getEntertainmentOption());
+        // DB columns are nullable=false; apply defaults if client omits these.
+        reservation.setBaggageOption(
+                reservationCreateDto.getBaggageOption() != null ? reservationCreateDto.getBaggageOption() : BaggageOption.CABIN_ONLY
+        );
+        reservation.setWifiOption(
+                reservationCreateDto.getWifiOption() != null ? reservationCreateDto.getWifiOption() : WifiOption.NONE
+        );
+        reservation.setEntertainmentOption(
+                reservationCreateDto.getEntertainmentOption() != null ? reservationCreateDto.getEntertainmentOption() : EntertainmentOption.NONE
+        );
 
         BigDecimal totalPrice = calculateTotalPrice(flight.getPrice(), reservationCreateDto);
         reservation.setTotalPrice(totalPrice);
@@ -172,46 +191,42 @@ public class ReservationServiceImpl implements IReservationService {
                 seat.getStatus(),
                 flight.getId(),
                 flight.getAvailableSeats());
-        return GenericResponse.success(reservationMapper.reservationToDto(savedReservation));
+        return reservationMapper.reservationToDto(savedReservation);
     }
 
     @Override
-    public GenericResponse<?> getAllReservations() {
+    public List<ReservationDto> getAllReservations() {
         List<Reservation> reservations = reservationRepository.findAll();
-        return GenericResponse.success(
-                reservations.stream().map(reservationMapper::reservationToDto).toList()
-        );
+        return reservations.stream().map(reservationMapper::reservationToDto).toList();
     }
 
     @Override
-    public GenericResponse<?> getReservationById(Integer id) {
+    public ReservationDto getReservationById(Integer id) {
         return reservationRepository.findById(id)
-                .map(reservation -> GenericResponse.success(reservationMapper.reservationToDto(reservation)))
-                .orElseGet(() -> GenericResponse.error(Constants.EMPTY_RESERVATION));
+                .map(reservationMapper::reservationToDto)
+                .orElseThrow(() -> new BaseException(new ErrorMessage(MessageType.NO_RECORD_EXIST, Constants.EMPTY_RESERVATION)));
     }
 
     @Override
-    public GenericResponse<?> getReservationsByUserId(Integer userId) {
+    public List<ReservationDto> getReservationsByUserId(Integer userId) {
         User user = userRepository.findById(userId).orElse(null);
-        if (user == null) return GenericResponse.error(Constants.EMPTY_USER);
+        if (user == null) throw new BaseException(new ErrorMessage(MessageType.NO_RECORD_EXIST, Constants.EMPTY_USER));
 
         List<Reservation> reservations = reservationRepository.findByUser(user);
-        return GenericResponse.success(
-                reservations.stream().map(reservationMapper::reservationToDto).toList()
-        );
+        return reservations.stream().map(reservationMapper::reservationToDto).toList();
     }
 
     @Override
-    public GenericResponse<?> deleteReservationById(Integer id) {
+    public String deleteReservationById(Integer id) {
         Optional<Reservation> optionalReservation = reservationRepository.findById(id);
         if (optionalReservation.isEmpty()) {
-            return GenericResponse.error(Constants.EMPTY_RESERVATION);
+            throw new BaseException(new ErrorMessage(MessageType.NO_RECORD_EXIST, Constants.EMPTY_RESERVATION));
         }
 
         Reservation reservation = optionalReservation.get();
 
         if (reservation.getStatus() != ReservationStatus.PENDING) {
-            return GenericResponse.error(Constants.ONLY_PENDING_CAN_BE_DELETED);
+            throw new BaseException(new ErrorMessage(MessageType.GENERAL_EXCEPTION, Constants.ONLY_PENDING_CAN_BE_DELETED));
         }
 
         if (reservation.getSeat() != null) {
@@ -221,20 +236,20 @@ public class ReservationServiceImpl implements IReservationService {
         }
 
         reservationRepository.deleteById(id);
-        return GenericResponse.success("Reservation deleted successfully");
+        return "Reservation deleted successfully";
     }
 
     @Override
-    public GenericResponse<?> cancelReservation(Integer id) {
+    public ReservationDto cancelReservation(Integer id) {
         Optional<Reservation> optionalReservation = reservationRepository.findById(id);
         if (optionalReservation.isEmpty()) {
-            return GenericResponse.error(Constants.EMPTY_RESERVATION);
+            throw new BaseException(new ErrorMessage(MessageType.NO_RECORD_EXIST, Constants.EMPTY_RESERVATION));
         }
 
         Reservation reservation = optionalReservation.get();
 
         if (reservation.getStatus() != ReservationStatus.PENDING) {
-            return GenericResponse.error(Constants.ONLY_PENDING_CAN_BE_CANCELLED);
+            throw new BaseException(new ErrorMessage(MessageType.GENERAL_EXCEPTION, Constants.ONLY_PENDING_CAN_BE_CANCELLED));
         }
 
         reservation.setStatus(ReservationStatus.CANCELLED);
@@ -246,21 +261,21 @@ public class ReservationServiceImpl implements IReservationService {
         }
 
         Reservation cancelledReservation = reservationRepository.save(reservation);
-        return GenericResponse.success(reservationMapper.reservationToDto(cancelledReservation));
+        return reservationMapper.reservationToDto(cancelledReservation);
     }
 
     @Override
-    public GenericResponse<?> updateReservation(Integer id, ReservationDto updatedReservationDto) {
+    public ReservationDto updateReservation(Integer id, ReservationDto updatedReservationDto) {
         Optional<Reservation> optionalReservation = reservationRepository.findById(id);
         if (optionalReservation.isEmpty()) {
-            return GenericResponse.error(Constants.EMPTY_RESERVATION);
+            throw new BaseException(new ErrorMessage(MessageType.NO_RECORD_EXIST, Constants.EMPTY_RESERVATION));
         }
 
         Reservation reservation = optionalReservation.get();
         reservation.setStatus(updatedReservationDto.getStatus());
 
         Reservation updatedReservation = reservationRepository.save(reservation);
-        return GenericResponse.success(reservationMapper.reservationToDto(updatedReservation));
+        return reservationMapper.reservationToDto(updatedReservation);
     }
 
     private BigDecimal calculateTotalPrice(BigDecimal basePrice, ReservationCreateDto dto) {
@@ -344,5 +359,9 @@ public class ReservationServiceImpl implements IReservationService {
 
         String email = authentication.getName();
         return userRepository.findByEmail(email).orElse(null);
+    }
+
+    private boolean isBlank(String value) {
+        return value == null || value.isBlank();
     }
 }

@@ -33,6 +33,13 @@ public class RootEntity<T> {
         return rootEntity;
     }
 
+    public static <T> RootEntity<T> error(int status, String errorMessage){
+        RootEntity<T> rootEntity = new RootEntity<>();
+        rootEntity.setStatus(status);
+        rootEntity.setPayload(null);
+        rootEntity.setErrorMessage(errorMessage);
+        return rootEntity;
+    }
 
 
 

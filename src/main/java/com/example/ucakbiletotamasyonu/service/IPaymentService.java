@@ -1,14 +1,15 @@
 package com.example.ucakbiletotamasyonu.service;
 
-import com.example.ucakbiletotamasyonu.ResponseMessage.GenericResponse;
+import com.example.ucakbiletotamasyonu.dto.CheckoutResponseDto;
+import com.example.ucakbiletotamasyonu.dto.PaymentDto;
 
 public interface IPaymentService {
 
-    GenericResponse<?> createCheckoutSession(Integer reservationId);
+    CheckoutResponseDto createCheckoutSession(Integer reservationId);
 
-    GenericResponse<?> confirmPayment(String sessionId);
+    PaymentDto confirmPayment(String sessionId);
 
-    GenericResponse<?> cancelPayment(Integer reservationId);
+    PaymentDto cancelPayment(Integer reservationId);
 
-    GenericResponse<?> getPaymentByReservationId(Integer reservationId);
+    PaymentDto getPaymentByReservationId(Integer reservationId);
 }

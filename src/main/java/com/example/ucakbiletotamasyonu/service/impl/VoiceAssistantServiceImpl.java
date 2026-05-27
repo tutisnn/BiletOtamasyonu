@@ -13,7 +13,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.ai.audio.transcription.TranscriptionModel;
 import org.springframework.ai.audio.tts.TextToSpeechModel;
-import org.springframework.ai.chat.memory.ChatMemory;
 import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Service;
 
@@ -26,22 +25,20 @@ public class VoiceAssistantServiceImpl implements IVoiceAssistantService {
     private final TranscriptionModel transcriptionModel;
     private final TextToSpeechModel textToSpeechModel;
     private final IChatService chatService;
-    private final ChatMemory chatMemory;
     private final ConcurrentHashMap<String, byte[]> audioCache = new ConcurrentHashMap<>();
 
-    public VoiceAssistantServiceImpl(ChatMemory chatMemory,
-                                     TranscriptionModel transcriptionModel,
+    public VoiceAssistantServiceImpl(TranscriptionModel transcriptionModel,
                                      TextToSpeechModel textToSpeechModel,
                                      IChatService chatService) {
-        this.chatMemory = chatMemory;
         this.transcriptionModel = transcriptionModel;
         this.textToSpeechModel = textToSpeechModel;
         this.chatService = chatService;
     }
 
     @Override
-    public VoiceAssistantResponse processAudio(Resource audioResource, String conversationId) {
-        String normalizedConversationId = normalizeConversationId(conversationId);
+    public VoiceAssistantResponse processAudio(Resource audioResource) {
+        // We do not keep "conversation memory" on the backend; each request is independent.
+        String normalizedConversationId = UUID.randomUUID().toString();
         try {
             log.info("voice assistant request started, conversationId={}, audioResource={}",
                     normalizedConversationId,
@@ -81,14 +78,6 @@ public class VoiceAssistantServiceImpl implements IVoiceAssistantService {
                     e.getMessage());
             throw new BaseException(new ErrorMessage(MessageType.VOICE_ASSISTANT_FAILED, e.getMessage()));
         }
-    }
-
-    @Override
-    public void clearConversation(String conversationId) {
-        String normalizedConversationId = normalizeConversationId(conversationId);
-        chatMemory.clear(normalizedConversationId);
-        audioCache.remove(normalizedConversationId);
-        log.info("voice assistant conversation cleared, conversationId={}", normalizedConversationId);
     }
 
     @Override

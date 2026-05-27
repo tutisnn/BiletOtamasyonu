@@ -1,6 +1,5 @@
 package com.example.ucakbiletotamasyonu.handler;
 
-import com.example.ucakbiletotamasyonu.controller.RootEntity;
 import com.example.ucakbiletotamasyonu.dto.AuthResponse;
 import com.example.ucakbiletotamasyonu.exception.BaseException;
 import com.example.ucakbiletotamasyonu.exception.ErrorMessage;
@@ -11,21 +10,27 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
-import org.springframework.http.MediaType;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.oauth2.client.authentication.OAuth2AuthenticationToken;
 import org.springframework.security.web.authentication.AuthenticationSuccessHandler;
 import org.springframework.stereotype.Component;
+import org.springframework.beans.factory.annotation.Value;
 
 @Component
 public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
 
     private final IAuthenticationService authenticationService;
     private final ObjectMapper objectMapper;
+    private final String frontendBaseUrl;
 
-    public OAuth2LoginSuccessHandler(IAuthenticationService authenticationService, ObjectMapper objectMapper) {
+    public OAuth2LoginSuccessHandler(
+            IAuthenticationService authenticationService,
+            ObjectMapper objectMapper,
+            @Value("${app.frontend-base-url:http://localhost:5173}") String frontendBaseUrl
+    ) {
         this.authenticationService = authenticationService;
         this.objectMapper = objectMapper;
+        this.frontendBaseUrl = frontendBaseUrl;
     }
 
     @Override
@@ -50,9 +55,9 @@ public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
             throw new BaseException(new ErrorMessage(MessageType.GENERAL_EXCEPTION, "unsupported oauth2 registration"));
         }
 
-        response.setStatus(HttpServletResponse.SC_OK);
-        response.setContentType(MediaType.APPLICATION_JSON_VALUE);
-        response.setCharacterEncoding("UTF-8");
-        objectMapper.writeValue(response.getWriter(), RootEntity.ok(authResponse));
+        // SPA-friendly: after setting cookies/headers (refresh token etc.), redirect user to frontend home.
+        // Frontend can call /api/v1/auth/refresh-token to obtain a fresh access token.
+        String target = frontendBaseUrl.endsWith("/") ? frontendBaseUrl : (frontendBaseUrl + "/");
+        response.sendRedirect(target);
     }
 }

@@ -1,11 +1,14 @@
 package com.example.ucakbiletotamasyonu.service.impl;
 
 import com.example.ucakbiletotamasyonu.ResponseMessage.Constants;
-import com.example.ucakbiletotamasyonu.ResponseMessage.GenericResponse;
 import com.example.ucakbiletotamasyonu.dto.CheckoutResponseDto;
+import com.example.ucakbiletotamasyonu.dto.PaymentDto;
 import com.example.ucakbiletotamasyonu.enums.PaymentStatus;
 import com.example.ucakbiletotamasyonu.enums.ReservationStatus;
 import com.example.ucakbiletotamasyonu.enums.SeatStatus;
+import com.example.ucakbiletotamasyonu.exception.BaseException;
+import com.example.ucakbiletotamasyonu.exception.ErrorMessage;
+import com.example.ucakbiletotamasyonu.exception.MessageType;
 import com.example.ucakbiletotamasyonu.mapper.PaymentMapper;
 import com.example.ucakbiletotamasyonu.model.Payment;
 import com.example.ucakbiletotamasyonu.model.Reservation;
@@ -59,19 +62,19 @@ public class PaymentServiceImpl implements IPaymentService {
     private String cancelUrl;
 
     @Override
-    public GenericResponse<?> createCheckoutSession(Integer reservationId) {
+    public CheckoutResponseDto createCheckoutSession(Integer reservationId) {
         Reservation reservation = reservationRepository.findById(reservationId).orElse(null);
         if (reservation == null) {
-            return GenericResponse.error(Constants.EMPTY_RESERVATION);
+            throw new BaseException(new ErrorMessage(MessageType.NO_RECORD_EXIST, Constants.EMPTY_RESERVATION));
         }
 
         if (reservation.getStatus() == ReservationStatus.CANCELLED) {
-            return GenericResponse.error("Cancelled reservation cannot be paid");
+            throw new BaseException(new ErrorMessage(MessageType.GENERAL_EXCEPTION, "Cancelled reservation cannot be paid"));
         }
 
         Optional<Payment> existingPayment = paymentRepository.findByReservation(reservation);
         if (existingPayment.isPresent() && existingPayment.get().getStatus() == PaymentStatus.SUCCESS) {
-            return GenericResponse.error("This reservation is already paid");
+            throw new BaseException(new ErrorMessage(MessageType.GENERAL_EXCEPTION, "This reservation is already paid"));
         }
 
         Payment payment = existingPayment.orElseGet(Payment::new);
@@ -122,14 +125,14 @@ public class PaymentServiceImpl implements IPaymentService {
             responseDto.setSessionUrl(session.getUrl());
             responseDto.setStatus(savedPayment.getStatus().name());
 
-            return GenericResponse.success(responseDto);
+            return responseDto;
         } catch (StripeException e) {
-            return GenericResponse.error("Stripe checkout session could not be created: " + e.getMessage());
+            throw new BaseException(new ErrorMessage(MessageType.GENERAL_EXCEPTION, "Stripe checkout session could not be created: " + e.getMessage()));
         }
     }
 
     @Override
-    public GenericResponse<?> confirmPayment(String sessionId) {
+    public PaymentDto confirmPayment(String sessionId) {
         Stripe.apiKey = stripeSecretKey;
 
         try {
@@ -137,12 +140,12 @@ public class PaymentServiceImpl implements IPaymentService {
 
             Payment payment = paymentRepository.findByStripeSessionId(sessionId).orElse(null);
             if (payment == null) {
-                return GenericResponse.error(Constants.EMPTY_PAYMENT);
+                throw new BaseException(new ErrorMessage(MessageType.NO_RECORD_EXIST, Constants.EMPTY_PAYMENT));
             }
 
             Reservation reservation = payment.getReservation();
             if (reservation == null) {
-                return GenericResponse.error(Constants.EMPTY_RESERVATION);
+                throw new BaseException(new ErrorMessage(MessageType.NO_RECORD_EXIST, Constants.EMPTY_RESERVATION));
             }
 
             if ("paid".equalsIgnoreCase(session.getPaymentStatus())) {
@@ -159,32 +162,27 @@ public class PaymentServiceImpl implements IPaymentService {
 
                 paymentRepository.save(payment);
                 reservationRepository.save(reservation);
-                GenericResponse<?> ticketResponse = ticketService.createTicketFromReservation(reservation.getId());
-
-                if (ticketResponse.getData() == null) {
-                    throw new RuntimeException("Ticket could not be created after payment");
-                }
-
-                return GenericResponse.success(paymentMapper.paymentToDto(payment));
+                ticketService.createTicketFromReservation(reservation.getId());
+                return paymentMapper.paymentToDto(payment);
             }
 
             payment.setStatus(PaymentStatus.FAILED);
             paymentRepository.save(payment);
-            return GenericResponse.error("Payment was not completed");
+            throw new BaseException(new ErrorMessage(MessageType.GENERAL_EXCEPTION, "Payment was not completed"));
         } catch (StripeException e) {
-            return GenericResponse.error("Stripe payment confirmation failed: " + e.getMessage());
+            throw new BaseException(new ErrorMessage(MessageType.GENERAL_EXCEPTION, "Stripe payment confirmation failed: " + e.getMessage()));
         }
     }
 
     @Override
-    public GenericResponse<?> cancelPayment(Integer reservationId) {
+    public PaymentDto cancelPayment(Integer reservationId) {
         Reservation reservation = reservationRepository.findById(reservationId).orElse(null);
         if (reservation == null) {
-            return GenericResponse.error(Constants.EMPTY_RESERVATION);
+            throw new BaseException(new ErrorMessage(MessageType.NO_RECORD_EXIST, Constants.EMPTY_RESERVATION));
         }
 
         if (reservation.getStatus() != ReservationStatus.PENDING) {
-            return GenericResponse.error(Constants.ONLY_PENDING_PAYMENT_CAN_BE_CANCELLED);
+            throw new BaseException(new ErrorMessage(MessageType.GENERAL_EXCEPTION, Constants.ONLY_PENDING_PAYMENT_CAN_BE_CANCELLED));
         }
 
         Payment payment = paymentRepository.findByReservation(reservation).orElse(null);
@@ -205,19 +203,19 @@ public class PaymentServiceImpl implements IPaymentService {
         }
         reservationRepository.save(reservation);
 
-        return GenericResponse.success(paymentMapper.paymentToDto(payment));
+        return paymentMapper.paymentToDto(payment);
     }
 
     @Override
-    public GenericResponse<?> getPaymentByReservationId(Integer reservationId) {
+    public PaymentDto getPaymentByReservationId(Integer reservationId) {
         Reservation reservation = reservationRepository.findById(reservationId).orElse(null);
         if (reservation == null) {
-            return GenericResponse.error(Constants.EMPTY_RESERVATION);
+            throw new BaseException(new ErrorMessage(MessageType.NO_RECORD_EXIST, Constants.EMPTY_RESERVATION));
         }
 
         return paymentRepository.findByReservation(reservation)
-                .map(payment -> GenericResponse.success(paymentMapper.paymentToDto(payment)))
-                .orElseGet(() -> GenericResponse.error(Constants.EMPTY_PAYMENT));
+                .map(paymentMapper::paymentToDto)
+                .orElseThrow(() -> new BaseException(new ErrorMessage(MessageType.NO_RECORD_EXIST, Constants.EMPTY_PAYMENT)));
     }
 
     private Long toStripeAmount(BigDecimal amount) {
